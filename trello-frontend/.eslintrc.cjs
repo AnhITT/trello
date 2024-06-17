@@ -8,11 +8,7 @@ module.exports = {
   ],
   parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
   settings: { react: { version: '18.2' } },
-  plugins: [
-    'react',
-    'react-hooks',
-    'react-refresh'
-  ],
+  plugins: ['react', 'react-hooks', 'react-refresh'],
   rules: {
     'react-refresh/only-export-components': 'warn',
     'react-hooks/rules-of-hooks': 'error',
@@ -28,9 +24,9 @@ module.exports = {
     'no-multiple-empty-lines': 1,
     'space-before-blocks': ['error', 'always'],
     'object-curly-spacing': [1, 'always'],
-    'indent': ['warn', 2],
-    'semi': [1, 'never'],
-    'quotes': ['error', 'single'],
+    indent: ['warn', 2],
+    semi: [1, 'never'],
+    quotes: ['error', 'single'],
     'array-bracket-spacing': 1,
     'linebreak-style': 0,
     'no-unexpected-multiline': 'warn',
