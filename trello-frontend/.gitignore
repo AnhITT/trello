@@ -1,6 +1,7 @@
 # dependencies
 /node_modules
 /.pnp
+/.vscode/
 .pnp.js
 
 # Logs
@@ -18,7 +19,6 @@ dist-ssr
 *.local
 
 # Editor directories and files
-../.vscode/
 !.vscode/extensions.json
 .idea
 .DS_Store
