@@ -1,9 +1,8 @@
-
+import Board from './pages/Boards/_id'
 function App() {
-
   return (
     <>
-      <h1>Vite + React</h1>
+      <Board />
     </>
   )
 }
