@@ -29,6 +29,7 @@ function AppBar() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        overflowX: 'auto',
         bgcolor: theme =>
           theme.palette.mode === 'dark' ? '#222f3e' : ' hsl(215,90%,32.7%)'
       }}
