@@ -72,6 +72,18 @@ function BoardBar({ board }) {
           sx={MENU_STYLES}
         ></Chip>
         <Chip
+          icon={<BoltIcon />}
+          label="Automation"
+          onClick={() => {}}
+          sx={MENU_STYLES}
+        ></Chip>
+        <Chip
+          icon={<BoltIcon />}
+          label="Automation"
+          onClick={() => {}}
+          sx={MENU_STYLES}
+        ></Chip>
+        <Chip
           icon={<FilterListIcon />}
           label="Filters"
           onClick={() => {}}
