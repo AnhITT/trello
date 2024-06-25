@@ -1,0 +1,7 @@
+﻿add-migration -Context MainDBContext -OutputDir "Data/Migrations"
+ 
+update-database -Context MainDBContext
+
+add-migration -Context UploadDBContext -OutputDir "Data/Migrations"
+ 
+update-database -Context UploadDBContext
