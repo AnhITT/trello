@@ -7,7 +7,7 @@ namespace Presentation_Layer.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    //[Authorize]
     public class BoardController : ControllerBase
     {
         private readonly BoardService _boardService;
@@ -27,6 +27,25 @@ namespace Presentation_Layer.Controllers
             return Ok(respone);
         }
 
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GetById(Guid idBoard)
+        {
+            var respone = await _boardService.GetById(idBoard);
+            if (respone.Success == false)
+                BadRequest(respone);
+
+            return Ok(respone);
+        }
+
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GetAllProptiesFromBoard(Guid idBoard)
+        {
+            var respone = await _boardService.GetAllProptiesFromBoard(idBoard);
+            if (respone.Success == false)
+                BadRequest(respone);
+
+            return Ok(respone);
+        }
         [HttpPost("[action]")]
         public async Task<IActionResult> Create([FromBody] ApiBoard apiBoard)
         {

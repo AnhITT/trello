@@ -49,13 +49,13 @@ function BoardBar({ board }) {
       >
         <Chip
           icon={<DashboardIcon />}
-          label={board?.title}
+          label={board?.name}
           onClick={() => {}}
           sx={MENU_STYLES}
         ></Chip>
         <Chip
           icon={<VpnLockIcon />}
-          label={capitalizeFirstLetter(board?.type)}
+          label={capitalizeFirstLetter(board?.id)}
           onClick={() => {}}
           sx={MENU_STYLES}
         ></Chip>

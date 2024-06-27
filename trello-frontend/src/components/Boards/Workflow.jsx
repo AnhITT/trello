@@ -42,7 +42,7 @@ function Workflow({ workflow }) {
   const open = Boolean(anchorEl)
   const handleClick = event => setAnchorEl(event.currentTarget)
   const handleClose = () => setAnchorEl(null)
-  const orderedCards = mapOrder(workflow?.cards, workflow?.cardOrderIds, 'id')
+  const orderedCards = workflow?.cards
 
   return (
     <div ref={setNodeRef} style={dndKitWorkflowStyles} {...attributes}>
@@ -78,7 +78,7 @@ function Workflow({ workflow }) {
               cursor: 'pointer'
             }}
           >
-            {workflow?.title}
+            {workflow?.name}
           </Typography>
 
           <Box>

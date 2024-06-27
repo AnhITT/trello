@@ -10,6 +10,8 @@ namespace DataAccess_Layer.Models
         public Guid Id { get; set; }
         public string Title { get; set; }
         public string? Description { get; set; }
+        public string? Cover { get; set; }
+        public int Position { get; set; }
 
         // n-1 Task Card - Workflow
         public Guid WorkflowId { get; set; }

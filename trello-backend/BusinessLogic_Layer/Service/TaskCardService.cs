@@ -118,9 +118,21 @@ namespace BusinessLogic_Layer.Service
                     };
                 #endregion
 
+                var checkPositionTask = _unitOfWork.TaskCardRepository.Context()
+                           .Where(w => w.WorkflowId == checkWorkflow.Id && w.IsDeleted == false)
+                           .OrderBy(w => w.Position)
+                           .ToList();
+
+                int newPosition = 0;
+                if (checkPositionTask.Any())
+                {
+                    newPosition = checkPositionTask.Last().Position + 1;
+                }
+
                 #region Add data to Database
                 apiTaskCard.Id = Guid.NewGuid();
                 var mapApiTaskCard = _mapper.Map<ApiTaskCard, TaskCard>(apiTaskCard);
+                mapApiTaskCard.Position = newPosition;
                 _unitOfWork.TaskCardRepository.Add(mapApiTaskCard);
                 var result = _unitOfWork.SaveChangesBool();
                 if (!result)
@@ -254,6 +266,17 @@ namespace BusinessLogic_Layer.Service
                         Success = true,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
+
+                var checkPositionTask = _unitOfWork.TaskCardRepository.Context()
+                   .Where(w => w.WorkflowId == checkTaskCard.WorkflowId && w.IsDeleted == false)
+                   .OrderBy(w => w.Position)
+                   .ToList();
+
+                // Cập nhật vị trí của các workflow khác
+                for (int i = 0; i < checkPositionTask.Count; i++)
+                {
+                    checkPositionTask[i].Position = i;
+                }
 
                 var deleteChildTask = _deleteChild.DeleteChildTaskCard(idTaskCard);
                 await deleteChildTask;

@@ -9,6 +9,7 @@ namespace DataAccess_Layer.Models
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public Guid Id { get; set; }
         public string Name { get; set; }
+        public int Position { get; set; }
 
         // n-1 Workflows - Board
         public Guid BoardId { get; set; }

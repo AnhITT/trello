@@ -2,12 +2,13 @@
 using Microsoft.AspNetCore.Mvc;
 using BusinessLogic_Layer.Service;
 using Microsoft.AspNetCore.Authorization;
+using DataAccess_Layer.Models;
 
 namespace Presentation_Layer.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    //[Authorize]
     public class WorkflowController : ControllerBase
     {
         private readonly WorkflowService _workflowService;
@@ -21,6 +22,25 @@ namespace Presentation_Layer.Controllers
         public async Task<IActionResult> GetAll()
         {
             var respone = await _workflowService.GetAll();
+            if (respone.Success == false)
+                BadRequest(respone);
+
+            return Ok(respone);
+        }
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GetByBoardID(Guid boardId)
+        {
+            var respone = await _workflowService.GetByBoardID(boardId);
+            if (respone.Success == false)
+                BadRequest(respone);
+
+            return Ok(respone);
+        }
+
+        [HttpPost("[action]")]
+        public async Task<IActionResult> UpdateWorkflowPosition([FromBody] UpdateWorkflowPositionRequest request)
+        {
+            var respone = await _workflowService.UpdateWorkflowPosition(request);
             if (respone.Success == false)
                 BadRequest(respone);
 

@@ -1,6 +1,6 @@
 import Box from '@mui/material/Box'
 import ListWorkflows from '~/components/Boards/ListWorkflows'
-import { mapOrder } from '~/utils/sorts'
+import { UpdateWorkflowPosition } from '~/apis/Workflow'
 import {
   DndContext,
   MouseSensor,
@@ -42,13 +42,21 @@ function BoardContent({ board }) {
   const [activeDragItemId, setActiveDragItemId] = useState([null])
   const [activeDragItemType, setActiveDragItemType] = useState([null])
   const [activeDragItemData, setActiveDragItemData] = useState([null])
+  const [oldColumnWhenDraggingCard, setOldColumnWhenDraggingCard] = useState([
+    null
+  ])
 
   useEffect(() => {
-    setOrderedWorkflows(
-      mapOrder(board?.workflows, board?.workflowOrderIds, 'id')
-    )
+    if (board) {
+      setOrderedWorkflows(board.workflows)
+    }
   }, [board])
-
+  const findColumnByCardId = cardId => {
+    // Đoạn này cần lưu ý, nên dùng c.cards thay vì c.cardOrderIds bởi vì ở bước handleDragOver chúng ta sẽ làm dữ liệu cho cards hoàn chỉnh trước rồi mới tạo ra cardOrderIds mới.
+    return orderedWorkflows.find(workflow =>
+      workflow?.cards?.map(card => card.id)?.includes(cardId)
+    )
+  }
   // Trigger khi bắt đầu kéo (drap) một phần tử
   const handleDragStart = event => {
     setActiveDragItemId(event?.active?.id)
@@ -58,6 +66,10 @@ function BoardContent({ board }) {
         : ACTIVE_DRAG_ITEM_TYPE.COLUMN
     )
     setActiveDragItemData(event?.active?.data?.current)
+    // Nếu là kéo card thì mới thực hiện hành động set giá trị oldColumn
+    if (event?.active?.data?.current?.columnId) {
+      setOldColumnWhenDraggingCard(findColumnByCardId(event?.active?.id))
+    }
   }
 
   const handleDragOver = event => {
@@ -65,9 +77,10 @@ function BoardContent({ board }) {
     if (activeDragItemType === ACTIVE_DRAG_ITEM_TYPE.COLUMN) return
     const { active, over } = event
   }
+
   const handleDragEnd = event => {
     const { active, over } = event
-    if (!over) return
+    if (!active || !over) return
     if (active.id !== over.id) {
       const oldIndex = orderedWorkflows.findIndex(
         workflow => workflow.id === active.id
@@ -81,6 +94,16 @@ function BoardContent({ board }) {
         newIndex
       )
       setOrderedWorkflows(dndOrderedWorkflows)
+      try {
+        const request = {
+          WorkflowId: active.id,
+          BoardId: board.id,
+          NewPosition: newIndex
+        }
+        UpdateWorkflowPosition(request)
+      } catch (error) {
+        setOrderedWorkflows(orderedWorkflows)
+      }
     }
     setActiveDragItemId(null)
     setActiveDragItemType(null)

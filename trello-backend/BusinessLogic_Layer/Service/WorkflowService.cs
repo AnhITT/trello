@@ -51,6 +51,123 @@ namespace BusinessLogic_Layer.Service
                 _unitOfWork.Dispose();
             }
         }
+        public async Task<ResultObject> GetByBoardID(Guid boardId)
+        {
+            try
+            {
+                #region Check board exists
+                var checkBoard = _unitOfWork.BoardRepository.FirstOrDefault(n => n.Id == boardId);
+                if (checkBoard == null)
+                    return new ResultObject
+                    {
+                        Message = $"{_localizer[SharedResourceKeys.Board]} {_localizer[SharedResourceKeys.NotFound]}",
+                        Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                #endregion
+
+                var data = _unitOfWork.WorkflowRepository.GetAll().Where(n => n.BoardId == boardId);
+                return new ResultObject
+                {
+                    Data = data,
+                    Success = true,
+                    StatusCode = EnumStatusCodesResult.Success
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ResultObject
+                {
+                    Message = ex.Message,
+                    Success = false,
+                    StatusCode = EnumStatusCodesResult.InternalServerError
+                };
+            }
+            finally
+            {
+                _unitOfWork.Dispose();
+            }
+        }
+        public async Task<ResultObject> UpdateWorkflowPosition(UpdateWorkflowPositionRequest request)
+        {
+            try
+            {
+                // Lấy danh sách các workflow trong cùng bảng, không bao gồm các workflow đã bị xóa
+                var checkPositionWorkflows = _unitOfWork.WorkflowRepository.Context()
+                    .Where(w => w.BoardId == request.BoardId && w.IsDeleted == false)
+                    .OrderBy(w => w.Position)
+                    .ToList();
+
+                // Lấy workflow cần di chuyển
+                var workflowToMove = _unitOfWork.WorkflowRepository.FirstOrDefault(w => w.Id == request.WorkflowId);
+                if (workflowToMove == null)
+                {
+                    return new ResultObject
+                    {
+                        Message = $"{_localizer[SharedResourceKeys.Workflow]} {_localizer[SharedResourceKeys.NotFound]}",
+                        Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                }
+
+                // Kiểm tra xem vị trí mới có hợp lệ hay không
+                if (request.NewPosition < 0 || request.NewPosition >= checkPositionWorkflows.Count)
+                {
+                    return new ResultObject
+                    {
+                        Message = $"{_localizer[SharedResourceKeys.Incorrect]}",
+                        Success = false,
+                        StatusCode = EnumStatusCodesResult.BadRequest
+                    };
+                }
+
+                // Xóa workflow cần di chuyển khỏi danh sách
+                checkPositionWorkflows.Remove(workflowToMove);
+
+                // Thêm workflow vào vị trí mới
+                checkPositionWorkflows.Insert(request.NewPosition, workflowToMove);
+
+                // Cập nhật lại vị trí cho tất cả các workflow
+                for (int i = 0; i < checkPositionWorkflows.Count; i++)
+                {
+                    checkPositionWorkflows[i].Position = i;
+                }
+
+                // Lưu thay đổi vào cơ sở dữ liệu
+                _unitOfWork.WorkflowRepository.UpdateRange(checkPositionWorkflows);
+                var result = _unitOfWork.SaveChangesBool();
+                if (!result)
+                {
+                    return new ResultObject
+                    {
+                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                        Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                }
+
+                return new ResultObject
+                {
+                    Data = true,
+                    Success = true,
+                    StatusCode = EnumStatusCodesResult.Success
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ResultObject
+                {
+                    Message = ex.Message,
+                    Success = false,
+                    StatusCode = EnumStatusCodesResult.InternalServerError
+                };
+            }
+            finally
+            {
+                _unitOfWork.Dispose();
+            }
+        }
+
         public async Task<ResultObject> Create(ApiWorkflow apiWorkflow)
         {
             try
@@ -66,8 +183,20 @@ namespace BusinessLogic_Layer.Service
                     };
                 #endregion
 
+                var checkPositionWorkflows = _unitOfWork.WorkflowRepository.Context()
+                            .Where(w => w.BoardId == checkBoard.Id && w.IsDeleted == false)
+                            .OrderBy(w => w.Position)
+                            .ToList();
+                int newPosition = 0;
+                if (checkPositionWorkflows.Any())
+                {
+                    newPosition = checkPositionWorkflows.Last().Position + 1;
+                }
+
                 apiWorkflow.Id = Guid.NewGuid();
                 var mapApiWorkflow = _mapper.Map<ApiWorkflow, Workflow>(apiWorkflow);
+                mapApiWorkflow.Position = newPosition;
+                //checkBoard.WorkflowOrders.Add(apiWorkflow.Id);
                 _unitOfWork.WorkflowRepository.Add(mapApiWorkflow);
                 var result = _unitOfWork.SaveChangesBool();
                 if (!result)
@@ -77,7 +206,6 @@ namespace BusinessLogic_Layer.Service
                         Success = true,
                         StatusCode = EnumStatusCodesResult.Success
                     };
-
                 #region Add Document to Elasticsearch
                 apiWorkflow.Type = ElasticsearchKeys.WorkflowType;
                 var response = await _elasticsearchService.CreateDocumentAsync(apiWorkflow, ElasticsearchKeys.WorkspaceIndex);
@@ -189,7 +317,7 @@ namespace BusinessLogic_Layer.Service
                 #endregion
 
                 _unitOfWork.WorkflowRepository.Remove(checkWorkflow);
-                
+
                 var result = _unitOfWork.SaveChangesBool();
                 if (!result)
                     return new ResultObject
@@ -198,6 +326,17 @@ namespace BusinessLogic_Layer.Service
                         Success = true,
                         StatusCode = EnumStatusCodesResult.Success
                     };
+
+                var checkPositionWorkflows = _unitOfWork.WorkflowRepository.Context()
+                          .Where(w => w.BoardId == checkWorkflow.BoardId && w.IsDeleted == false)
+                          .OrderBy(w => w.Position)
+                          .ToList();
+
+                // Cập nhật vị trí của các workflow khác
+                for (int i = 0; i < checkPositionWorkflows.Count; i++)
+                {
+                    checkPositionWorkflows[i].Position = i;
+                }
 
                 var deleteChildTask = _deleteChild.DeleteChildWorkflow(idWorkflow);
                 await deleteChildTask;

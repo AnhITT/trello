@@ -3,6 +3,9 @@ import Card from './Card'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 
 function ListCards({ cards }) {
+  if (!cards || !Array.isArray(cards)) {
+    return null
+  }
   return (
     <SortableContext
       items={cards?.map(w => w.id)}
@@ -10,7 +13,7 @@ function ListCards({ cards }) {
     >
       <Box
         sx={{
-          p: '0 5px', // padding
+          p: '0 5px 5px 5px', // padding
           m: '0 5px', // margin
           display: 'flex',
           flexDirection: 'column',

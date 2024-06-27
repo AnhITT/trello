@@ -104,7 +104,10 @@ namespace Presentation_Layer
                 .AddSupportedUICultures(supportedCultures);
 
             localizationOptions.ApplyCurrentCultureToResponseHeaders = true;
-
+            app.UseCors(builder =>
+            {
+                builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+            });
             app.UseRequestLocalization(localizationOptions);
             app.Run();
         }

@@ -3,6 +3,7 @@ using System;
 using DataAccess_Layer.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DataAccess_Layer.Data.Migrations
 {
     [DbContext(typeof(MainDBContext))]
-    partial class MainDBContextModelSnapshot : ModelSnapshot
+    [Migration("20240625070906_upload-db")]
+    partial class uploaddb
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -257,9 +260,6 @@ namespace DataAccess_Layer.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Cover")
-                        .HasColumnType("text");
-
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
 
@@ -283,9 +283,6 @@ namespace DataAccess_Layer.Data.Migrations
 
                     b.Property<DateTime?>("ModifiedDate")
                         .HasColumnType("timestamp without time zone");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -424,9 +421,6 @@ namespace DataAccess_Layer.Data.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -579,7 +573,7 @@ namespace DataAccess_Layer.Data.Migrations
             modelBuilder.Entity("DataAccess_Layer.Models.TaskCard", b =>
                 {
                     b.HasOne("DataAccess_Layer.Models.Workflow", "Workflows")
-                        .WithMany()
+                        .WithMany("cardOrderIds")
                         .HasForeignKey("WorkflowId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -609,7 +603,7 @@ namespace DataAccess_Layer.Data.Migrations
             modelBuilder.Entity("DataAccess_Layer.Models.Workflow", b =>
                 {
                     b.HasOne("DataAccess_Layer.Models.Board", "Boards")
-                        .WithMany()
+                        .WithMany("WorkflowOrders")
                         .HasForeignKey("BoardId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -636,6 +630,11 @@ namespace DataAccess_Layer.Data.Migrations
                     b.Navigation("Workspaces");
                 });
 
+            modelBuilder.Entity("DataAccess_Layer.Models.Board", b =>
+                {
+                    b.Navigation("WorkflowOrders");
+                });
+
             modelBuilder.Entity("DataAccess_Layer.Models.TaskCard", b =>
                 {
                     b.Navigation("TaskCardUsers");
@@ -648,6 +647,11 @@ namespace DataAccess_Layer.Data.Migrations
                     b.Navigation("TaskCardUsers");
 
                     b.Navigation("WorkspaceUsers");
+                });
+
+            modelBuilder.Entity("DataAccess_Layer.Models.Workflow", b =>
+                {
+                    b.Navigation("cardOrderIds");
                 });
 
             modelBuilder.Entity("DataAccess_Layer.Models.Workspace", b =>

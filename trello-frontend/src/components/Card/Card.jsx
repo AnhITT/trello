@@ -11,13 +11,6 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
 function Card({ card }) {
-  const shouldShowCardAction = () => {
-    return (
-      !!card?.memberIds?.length ||
-      !!card?.comments?.length ||
-      !!card?.attachments?.length
-    )
-  }
   const {
     attributes,
     listeners,
@@ -27,21 +20,34 @@ function Card({ card }) {
     isDragging
   } = useSortable({ id: card.id, data: { ...card } })
 
-  const dndKitWorkflowStyles = {
+  const shouldShowCardAction = () => {
+    return (
+      !!card?.memberIds?.length ||
+      !!card?.comments?.length ||
+      !!card?.attachments?.length
+    )
+  }
+
+  const dndKitCardStyles = {
     transform: CSS.Translate.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : undefined
+    opacity: isDragging ? 0.5 : undefined,
+    border: isDragging ? '1px solid #2ecc71' : undefined
   }
+
   return (
     <MuiCard
       ref={setNodeRef}
-      style={dndKitWorkflowStyles}
+      style={dndKitCardStyles}
       {...attributes}
       {...listeners}
       sx={{
         cursor: 'pointer',
         boxShadow: '0 1px 1px rgba(0,0,0,0.2)',
-        overflow: 'unset'
+        overflow: 'unset',
+        display: card?.FE_PlaceholderCard ? 'none' : 'block',
+        border: '1px solid transparent',
+        '&:hover': { borderColor: theme => theme.palette.primary.main }
       }}
     >
       {card?.cover && <CardMedia sx={{ height: 140 }} image={card?.cover} />}
