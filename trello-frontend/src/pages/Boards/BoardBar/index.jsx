@@ -37,7 +37,7 @@ function BoardBar({ board }) {
         gap: 2,
         overflowX: 'auto',
         bgcolor: theme =>
-          theme.palette.mode === 'dark' ? '#34495e' : 'hsla(215,90%,37.7%,0.9)'
+          theme.palette.mode === 'dark' ? '#34495e' : '#1976d2'
       }}
     >
       <Box

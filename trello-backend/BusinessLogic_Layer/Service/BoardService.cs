@@ -120,7 +120,8 @@ namespace BusinessLogic_Layer.Service
                                                   Title = card.Title,
                                                   Description = card.Description,
                                                   Cover = card.Cover,
-                                                  Position = card.Position
+                                                  Position = card.Position,
+                                                  workflowId = workflow.Id
                                               }).ToList()
                                  }).ToList();
 
