@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box'
 import ListWorkflows from '~/components/Boards/ListWorkflows'
 import { UpdateWorkflowPosition } from '~/apis/Workflow'
+import { UpdateTaskCardPosition } from '~/apis/TaskCard'
 import {
   DndContext,
   MouseSensor,
@@ -51,13 +52,7 @@ function BoardContent({ board }) {
 
   useEffect(() => {
     if (board) {
-      const initialWorkflows = cloneDeep(board.workflows).map(workflow => {
-        if (isEmpty(workflow.cards)) {
-          workflow.cards = [generatePlaceholderCard(workflow)]
-        }
-        return workflow
-      })
-      setOrderedWorkflows(initialWorkflows)
+      setOrderedWorkflows(board.workflows)
     }
   }, [board])
 
@@ -115,11 +110,6 @@ function BoardContent({ board }) {
             generatePlaceholderCard(nextActiveWorkflow)
           ]
         }
-
-        // Cập nhật lại mảng cardOrderIds cho chuẩn dữ liệu
-        nextActiveWorkflow.cardOrderIds = nextActiveWorkflow.cards.map(
-          card => card.id
-        )
       }
 
       // nextOverWorkflow: Workflow mới
@@ -231,6 +221,19 @@ function BoardContent({ board }) {
           activeDraggingCardId,
           activeDraggingCardData
         )
+        const newCardIndex = overWorkflow?.cards?.findIndex(
+          c => c.id === overCardId
+        )
+        try {
+          const request = {
+            MoveId: activeDraggingCardId,
+            SpaceId: overWorkflow.id,
+            NewPosition: newCardIndex
+          }
+          UpdateTaskCardPosition(request)
+        } catch (error) {
+          setOrderedWorkflows(orderedWorkflows)
+        }
       } else {
         // Hành động kéo thả card trong cùng 1 cái column
 
@@ -259,7 +262,16 @@ function BoardContent({ board }) {
 
           // Cập nhật lại 2 giá trị mới là card và cardOrderIds trong cái targetColumn
           targetWorkflow.cards = dndOrderedCards
-
+          try {
+            const request = {
+              MoveId: activeDraggingCardId,
+              SpaceId: overWorkflow.id,
+              NewPosition: newCardIndex
+            }
+            UpdateTaskCardPosition(request)
+          } catch (error) {
+            setOrderedWorkflows(orderedWorkflows)
+          }
           // Trả về giá trị state mới (chuẩn vị trí)
           return nextWorkflows
         })
@@ -283,8 +295,8 @@ function BoardContent({ board }) {
       setOrderedWorkflows(dndOrderedWorkflows)
       try {
         const request = {
-          WorkflowId: active.id,
-          BoardId: board.id,
+          MoveId: active.id,
+          SpaceId: board.id,
           NewPosition: newIndex
         }
         UpdateWorkflowPosition(request)

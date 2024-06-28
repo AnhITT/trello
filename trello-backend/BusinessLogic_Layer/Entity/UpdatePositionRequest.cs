@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace BusinessLogic_Layer.Entity
 {
-    public class UpdateWorkflowPositionRequest
+    public class UpdatePositionRequest
     {
-        public Guid WorkflowId { get; set; }
-        public Guid BoardId { get; set; }
+        public Guid MoveId { get; set; }
+        public Guid SpaceId { get; set; }
         public int NewPosition { get; set; }
     }
 }

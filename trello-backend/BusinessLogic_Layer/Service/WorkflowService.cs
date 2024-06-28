@@ -88,18 +88,17 @@ namespace BusinessLogic_Layer.Service
                 _unitOfWork.Dispose();
             }
         }
-        public async Task<ResultObject> UpdateWorkflowPosition(UpdateWorkflowPositionRequest request)
+        public async Task<ResultObject> UpdateWorkflowPosition(UpdatePositionRequest request)
         {
             try
             {
                 // Lấy danh sách các workflow trong cùng bảng, không bao gồm các workflow đã bị xóa
-                var checkPositionWorkflows = _unitOfWork.WorkflowRepository.Context()
-                    .Where(w => w.BoardId == request.BoardId && w.IsDeleted == false)
+                var checkPositionWorkflows = _unitOfWork.WorkflowRepository.Find(w => w.BoardId == request.SpaceId)
                     .OrderBy(w => w.Position)
                     .ToList();
 
                 // Lấy workflow cần di chuyển
-                var workflowToMove = _unitOfWork.WorkflowRepository.FirstOrDefault(w => w.Id == request.WorkflowId);
+                var workflowToMove = _unitOfWork.WorkflowRepository.FirstOrDefault(w => w.Id == request.MoveId);
                 if (workflowToMove == null)
                 {
                     return new ResultObject
@@ -186,6 +185,7 @@ namespace BusinessLogic_Layer.Service
                             .Where(w => w.BoardId == checkBoard.Id && w.IsDeleted == false)
                             .OrderBy(w => w.Position)
                             .ToList();
+
                 int newPosition = 0;
                 if (checkPositionWorkflows.Any())
                 {

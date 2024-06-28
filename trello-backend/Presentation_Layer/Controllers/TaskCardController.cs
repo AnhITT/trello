@@ -7,7 +7,7 @@ namespace Presentation_Layer.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    //[Authorize]
     public class TaskCardController : ControllerBase
     {
         private readonly TaskCardService _taskCardService;
@@ -129,6 +129,15 @@ namespace Presentation_Layer.Controllers
         public async Task<IActionResult> DeleteCheckListItem(Guid idCheckListItem)
         {
             var respone = await _taskCardService.DeleteCheckListItem(idCheckListItem);
+            if (respone.Success == false)
+                BadRequest(respone);
+
+            return Ok(respone);
+        }
+        [HttpPost("[action]")]
+        public async Task<IActionResult> UpdateTaskCardPosition([FromBody] UpdatePositionRequest request)
+        {
+            var respone = await _taskCardService.UpdateTaskCardPosition(request);
             if (respone.Success == false)
                 BadRequest(respone);
 

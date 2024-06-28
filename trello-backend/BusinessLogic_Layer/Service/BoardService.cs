@@ -52,7 +52,6 @@ namespace BusinessLogic_Layer.Service
                 _unitOfWork.Dispose();
             }
         }
-        
         public async Task<ResultObject> GetById(Guid idBoard)
         {
             try
@@ -153,7 +152,6 @@ namespace BusinessLogic_Layer.Service
                 _unitOfWork.Dispose();
             }
         }
-
         public async Task<ResultObject> Create(ApiBoard apiBoard)
         {
             try

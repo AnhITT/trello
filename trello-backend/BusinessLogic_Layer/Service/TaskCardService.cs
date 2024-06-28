@@ -5,6 +5,7 @@ using BusinessLogic_Layer.Enums;
 using DataAccess_Layer.Interfaces;
 using DataAccess_Layer.Models;
 using Microsoft.Extensions.Localization;
+using Org.BouncyCastle.Asn1.Ocsp;
 
 namespace BusinessLogic_Layer.Service
 {
@@ -583,5 +584,132 @@ namespace BusinessLogic_Layer.Service
                 _unitOfWork.Dispose();
             }
         }
+        public async Task<ResultObject> UpdateTaskCardPosition(UpdatePositionRequest request)
+        {
+            try
+            {
+                var checkCard = _unitOfWork.TaskCardRepository.FirstOrDefault(n => n.Id == request.MoveId);
+                if (checkCard == null)
+                {
+                    return new ResultObject
+                    {
+                        Message = $"{_localizer[SharedResourceKeys.TaskCard]} {_localizer[SharedResourceKeys.NotFound]}",
+                        Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                }
+
+                if (checkCard.WorkflowId == request.SpaceId)
+                {
+                    // Lấy danh sách các task card trong cùng bảng
+                    var checkPositionCards = _unitOfWork.TaskCardRepository.Find(w => w.WorkflowId == request.SpaceId)
+                         .OrderBy(w => w.Position)
+                         .ToList();
+                    if (request.NewPosition < 0 || request.NewPosition >= checkPositionCards.Count)
+                    {
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.Incorrect]}",
+                            Success = false,
+                            StatusCode = EnumStatusCodesResult.BadRequest
+                        };
+                    }
+
+                    // Xóa workflow cần di chuyển khỏi danh sách
+                    checkPositionCards.Remove(checkCard);
+
+                    // Thêm workflow vào vị trí mới
+                    checkPositionCards.Insert(request.NewPosition, checkCard);
+
+                    // Cập nhật lại vị trí cho tất cả các workflow
+                    for (int i = 0; i < checkPositionCards.Count; i++)
+                    {
+                        checkPositionCards[i].Position = i;
+                    }
+
+                    // Lưu thay đổi vào cơ sở dữ liệu
+                    _unitOfWork.TaskCardRepository.UpdateRange(checkPositionCards);
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.Success
+                        };
+                    }
+
+                    return new ResultObject
+                    {
+                        Data = true,
+                        Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                }
+                else
+                {
+                    var getCardInWorkflowOld = _unitOfWork.TaskCardRepository.Find(w => w.WorkflowId == checkCard.WorkflowId)
+                        .OrderBy(w => w.Position)
+                        .ToList();
+
+                    var getCardInWorkflowNew = _unitOfWork.TaskCardRepository.Find(w => w.WorkflowId == request.SpaceId)
+                       .OrderBy(w => w.Position)
+                       .ToList();
+
+                    // Xóa workflow cần di chuyển khỏi danh sách
+                    getCardInWorkflowOld.Remove(checkCard);
+
+                    for (int i = 0; i < getCardInWorkflowOld.Count; i++)
+                    {
+                        getCardInWorkflowOld[i].Position = i;
+                    }
+
+                    // Thêm workflow vào vị trí mới
+                    
+                    checkCard.WorkflowId = request.SpaceId;
+                    getCardInWorkflowNew.Insert(request.NewPosition, checkCard);
+                    // Cập nhật lại vị trí cho tất cả các workflow
+                    for (int i = 0; i < getCardInWorkflowNew.Count; i++)
+                    {
+                        getCardInWorkflowNew[i].Position = i;
+                    }
+                    // Lưu thay đổi vào cơ sở dữ liệu
+                    _unitOfWork.TaskCardRepository.UpdateRange(getCardInWorkflowOld);
+                    _unitOfWork.TaskCardRepository.UpdateRange(getCardInWorkflowNew);
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.Success
+                        };
+                    }
+
+                    return new ResultObject
+                    {
+                        Data = true,
+                        Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                return new ResultObject
+                {
+                    Message = ex.Message,
+                    Success = false,
+                    StatusCode = EnumStatusCodesResult.InternalServerError
+                };
+            }
+            finally
+            {
+                _unitOfWork.Dispose();
+            }
+        }
+
     }
 }

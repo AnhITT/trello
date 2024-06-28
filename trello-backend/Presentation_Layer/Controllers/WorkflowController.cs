@@ -38,7 +38,7 @@ namespace Presentation_Layer.Controllers
         }
 
         [HttpPost("[action]")]
-        public async Task<IActionResult> UpdateWorkflowPosition([FromBody] UpdateWorkflowPositionRequest request)
+        public async Task<IActionResult> UpdateWorkflowPosition([FromBody] UpdatePositionRequest request)
         {
             var respone = await _workflowService.UpdateWorkflowPosition(request);
             if (respone.Success == false)
