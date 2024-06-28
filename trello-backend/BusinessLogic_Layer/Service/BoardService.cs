@@ -104,6 +104,7 @@ namespace BusinessLogic_Layer.Service
 
                 var workflows = (from workflow in _unitOfWork.WorkflowRepository.Context()
                                  where workflow.BoardId == idBoard
+                                 where workflow.IsDeleted == false
                                  orderby workflow.Position
                                  select new
                                  {
@@ -112,6 +113,7 @@ namespace BusinessLogic_Layer.Service
                                      Position = workflow.Position,
                                      Cards = (from card in _unitOfWork.TaskCardRepository.Context()
                                               where card.WorkflowId == workflow.Id
+                                              where card.IsDeleted == false
                                               orderby card.Position
                                               select new
                                               {

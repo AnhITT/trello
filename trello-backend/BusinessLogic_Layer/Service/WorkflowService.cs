@@ -219,7 +219,7 @@ namespace BusinessLogic_Layer.Service
 
                 return new ResultObject
                 {
-                    Data = true,
+                    Data = mapApiWorkflow,
                     Success = true,
                     StatusCode = EnumStatusCodesResult.Success
                 };

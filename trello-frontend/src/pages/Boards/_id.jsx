@@ -6,6 +6,9 @@ import { GetAllProptiesFromBoard } from '~/apis/Board'
 import { useState, useEffect } from 'react'
 import { isEmpty } from 'lodash'
 import { generatePlaceholderCard } from '~/utils/formatters'
+import { AddWorkflow } from '~/apis/Workflow'
+import { UpdateWorkflowPosition } from '~/apis/Workflow'
+import { UpdateTaskCardPosition } from '~/apis/TaskCard'
 
 function Board() {
   const [board, setBoard] = useState(null)
@@ -25,11 +28,33 @@ function Board() {
 
     setBoard(data.data)
   }
+  const createNewWorkflow = async newWorkflowData => {
+    const createdWorkflow = await AddWorkflow({
+      ...newWorkflowData,
+      boardId: board.id
+    })
+
+    createdWorkflow.data.cards = [generatePlaceholderCard(createdWorkflow)]
+    createdWorkflow.data.cardOrderIds = [
+      generatePlaceholderCard(createdWorkflow).id
+    ]
+    const newBoard = { ...board }
+    newBoard.workflows.push(createdWorkflow.data)
+    setBoard(newBoard)
+  }
+
+  const moveWorkflows = data => {
+    UpdateWorkflowPosition(data)
+  }
   return (
     <Container disableGutters maxWidth="false" sx={{ height: '100vh' }}>
       <AppBar />
       <BoardBar board={board} />
-      <BoardContent board={board} />
+      <BoardContent
+        board={board}
+        createNewWorkflow={createNewWorkflow}
+        moveWorkflows={moveWorkflows}
+      />
     </Container>
   )
 }

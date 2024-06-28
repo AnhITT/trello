@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box'
-import ListWorkflows from '~/components/Boards/ListWorkflows'
+import ListWorkflows from '~/components/Workflows/ListWorkflows'
 import { UpdateWorkflowPosition } from '~/apis/Workflow'
 import { UpdateTaskCardPosition } from '~/apis/TaskCard'
 import {
@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Workflow from '~/components/Boards/Workflow'
+import Workflow from '~/components/Workflows/Workflow'
 import Card from '~/components/Card/Card'
 import { cloneDeep, isEmpty } from 'lodash'
 import { generatePlaceholderCard } from '~/utils/formatters'
@@ -26,7 +26,7 @@ const ACTIVE_DRAG_ITEM_TYPE = {
   CARD: 'ACTIVE_DRAG_ITEM_TYPE_CARD'
 }
 
-function BoardContent({ board }) {
+function BoardContent({ board, createNewWorkflow, moveWorkflows }) {
   const mouseSensor = useSensor(MouseSensor, {
     activationConstraint: {
       distance: 10
@@ -110,6 +110,9 @@ function BoardContent({ board }) {
             generatePlaceholderCard(nextActiveWorkflow)
           ]
         }
+        nextActiveWorkflow.cardOrderIds = nextActiveWorkflow.cards.map(
+          card => card.id
+        )
       }
 
       // nextOverWorkflow: Workflow mới
@@ -293,16 +296,12 @@ function BoardContent({ board }) {
         newIndex
       )
       setOrderedWorkflows(dndOrderedWorkflows)
-      try {
-        const request = {
-          MoveId: active.id,
-          SpaceId: board.id,
-          NewPosition: newIndex
-        }
-        UpdateWorkflowPosition(request)
-      } catch (error) {
-        setOrderedWorkflows(orderedWorkflows)
+      const request = {
+        MoveId: active.id,
+        SpaceId: board.id,
+        NewPosition: newIndex
       }
+      moveWorkflows(request)
     }
     setActiveDragItemId(null)
     setActiveDragItemType(null)
@@ -385,7 +384,10 @@ function BoardContent({ board }) {
           p: '10px 0'
         }}
       >
-        <ListWorkflows workflows={orderedWorkflows} />
+        <ListWorkflows
+          workflows={orderedWorkflows}
+          createNewWorkflow={createNewWorkflow}
+        />
         <DragOverlay dropAnimation={customDropAnimation}>
           {!activeDragItemType && null}
           {activeDragItemType === ACTIVE_DRAG_ITEM_TYPE.WORKFLOW && (
