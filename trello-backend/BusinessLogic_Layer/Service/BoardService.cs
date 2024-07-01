@@ -2,6 +2,7 @@
 using BusinessLogic_Layer.Common;
 using BusinessLogic_Layer.Entity;
 using BusinessLogic_Layer.Enums;
+using BusinessLogic_LayerDataAccess_Layer.Common;
 using DataAccess_Layer.Interfaces;
 using DataAccess_Layer.Models;
 using Microsoft.Extensions.Localization;
@@ -16,15 +17,17 @@ namespace BusinessLogic_Layer.Service
         private readonly IStringLocalizer<SharedResource> _localizer;
         private readonly ElasticsearchService _elasticsearchService;
         private readonly DeleteChild _deleteChild;
+        public readonly CallApi _callApi;
 
         public BoardService(IUnitOfWork unitOfWork, IMapper mapper, IStringLocalizer<SharedResource> localizer,
-            ElasticsearchService elasticsearchService, DeleteChild deleteChild)
+            ElasticsearchService elasticsearchService, DeleteChild deleteChild, CallApi callApi)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _localizer = localizer;
             _elasticsearchService = elasticsearchService;
             _deleteChild = deleteChild;
+            _callApi = callApi;
         }
         public async Task<ResultObject> GetAll()
         {
@@ -89,8 +92,7 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                var board = _unitOfWork.BoardRepository.Context()
-                                    .FirstOrDefault(b => b.Id == idBoard);
+                var board = _unitOfWork.BoardRepository.FirstOrDefault(b => b.Id == idBoard);
 
                 if (board == null)
                 {
@@ -122,7 +124,13 @@ namespace BusinessLogic_Layer.Service
                                                   Description = card.Description,
                                                   Cover = card.Cover,
                                                   Position = card.Position,
-                                                  workflowId = workflow.Id
+                                                  workflowId = workflow.Id,
+                                                  UserCount = card.TaskCardUsers.Count(),
+                                                  CompletedChecklistItems = _unitOfWork.CheckListItemRepository.Context()
+                                                  .Count(cli => cli.TaskId == card.Id && cli.IsCompleted),
+                                                      TotalChecklistItems = _unitOfWork.CheckListItemRepository.Context()
+                                                  .Count(cli => cli.TaskId == card.Id),
+                                                  Files = _callApi.GetFilesForTask(card.Id).Result.Count,
                                               }).ToList()
                                  }).ToList();
 

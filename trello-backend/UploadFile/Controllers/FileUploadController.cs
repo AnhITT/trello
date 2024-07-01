@@ -7,7 +7,7 @@ namespace UploadFile.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    //[Authorize]
     public class FileUploadController : ControllerBase
     {
         private readonly UploadService _uploadService;
@@ -20,6 +20,16 @@ namespace UploadFile.Controllers
         public async Task<IActionResult> GetAll()
         {
             var respone = await _uploadService.GetAll();
+            if (respone.Success == false)
+                BadRequest(respone);
+
+            return Ok(respone);
+        }
+
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GetFileToTask(Guid idTask)
+        {
+            var respone = await _uploadService.GetFileToTask(idTask);
             if (respone.Success == false)
                 BadRequest(respone);
 

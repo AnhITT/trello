@@ -19,8 +19,12 @@ import DeleteForeverIcon from '@mui/icons-material/DeleteForever'
 import ListCards from '~/components/Card/ListCards'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { toast } from 'react-toastify'
+import CloseIcon from '@mui/icons-material/Close'
+import { TextField } from '@mui/material'
+import { useConfirm } from 'material-ui-confirm'
 
-function Workflow({ workflow }) {
+function Workflow({ workflow, createNewTaskCard, deleteWorkflow }) {
   const {
     attributes,
     listeners,
@@ -43,6 +47,55 @@ function Workflow({ workflow }) {
   const handleClose = () => setAnchorEl(null)
   const orderedCards = workflow?.cards
 
+  const [openNewCardForm, setOpenNewCardForm] = useState(false)
+  const toggleOpenNewCardForm = () => setOpenNewCardForm(!openNewCardForm)
+
+  const [newCardTitle, setNewCardTitle] = useState('')
+  const addNewCard = () => {
+    if (!newCardTitle) {
+      toast('🦄 Please enter Workflow Title!', {
+        position: 'bottom-right',
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: 'light'
+      })
+      return
+    }
+    // Tạo dữ liệu Card để gọi API
+    const newCardData = {
+      title: newCardTitle,
+      workflowId: workflow.id
+    }
+
+    createNewTaskCard(newCardData)
+    // Đóng trạng thái thêm Card mới & Clear Input
+    toggleOpenNewCardForm()
+    setNewCardTitle('')
+  }
+
+  // Xử lý xóa một Column và Card bên trong nó
+  const confirmDeleteWorkflow = useConfirm()
+
+  const handleDeleteWorkflow = () => {
+    confirmDeleteWorkflow({
+      title: 'Delete Workflow?',
+      description:
+        'This action will permanently delete your Workflow and its Cards! Are you sure?',
+      confirmationText: 'Confirm',
+      cancellationText: 'Cancel'
+    })
+      .then(() => {
+        console.log('workflow.id:', workflow.id)
+        console.log('workflow.title:', workflow.title)
+
+        deleteWorkflow(workflow.id)
+      })
+      .catch(() => {})
+  }
   return (
     <div ref={setNodeRef} style={dndKitWorkflowStyles} {...attributes}>
       <Box
@@ -100,9 +153,19 @@ function Workflow({ workflow }) {
                 'aria-labelledby': 'basic-column-dropdown'
               }}
             >
-              <MenuItem>
+              <MenuItem
+                onClick={toggleOpenNewCardForm}
+                sx={{
+                  '&:hover': {
+                    color: 'success.light',
+                    '& .add-card-icon': {
+                      color: 'success.light'
+                    }
+                  }
+                }}
+              >
                 <ListItemIcon>
-                  <AddCardIcon fontSize="small" />
+                  <AddCardIcon className="add-card-icon" fontSize="small" />
                 </ListItemIcon>
                 <ListItemText>Add new card</ListItemText>
                 <Typography variant="body2" color="text.secondary">
@@ -137,11 +200,24 @@ function Workflow({ workflow }) {
                 </Typography>
               </MenuItem>
               <Divider />
-              <MenuItem>
+              <MenuItem
+                onClick={handleDeleteWorkflow}
+                sx={{
+                  '&:hover': {
+                    color: 'warning.dark',
+                    '& .delete-forever-icon': {
+                      color: 'warning.dark'
+                    }
+                  }
+                }}
+              >
                 <ListItemIcon>
-                  <DeleteForeverIcon fontSize="small" />
+                  <DeleteForeverIcon
+                    className="delete-forever-icon"
+                    fontSize="small"
+                  />
                 </ListItemIcon>
-                <ListItemText>Remove Archive this column</ListItemText>
+                <ListItemText>Delete this column</ListItemText>
               </MenuItem>
               <MenuItem>
                 <ListItemIcon>
@@ -160,16 +236,108 @@ function Workflow({ workflow }) {
         <Box
           sx={{
             height: theme => theme.trello.columnFooterHeight,
-            p: 2,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
+            p: 2
           }}
         >
-          <Button startIcon={<AddCardIcon />}>Add new card</Button>
-          <Tooltip title="Drag to move">
-            <DragHandleIcon sx={{ cursor: 'pointer' }} />
-          </Tooltip>
+          {!openNewCardForm ? (
+            <Box
+              sx={{
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <Button
+                startIcon={<AddCardIcon />}
+                onClick={toggleOpenNewCardForm}
+              >
+                Add new card
+              </Button>
+              <Tooltip title="Drag to move">
+                <DragHandleIcon sx={{ cursor: 'pointer' }} />
+              </Tooltip>
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}
+            >
+              <TextField
+                label="Enter card title..."
+                type="text"
+                size="small"
+                variant="outlined"
+                autoFocus
+                data-no-dnd="true"
+                value={newCardTitle}
+                onChange={e => setNewCardTitle(e.target.value)}
+                sx={{
+                  '& label': {
+                    color: 'text.primary'
+                  },
+                  '& input': {
+                    color: theme => theme.palette.primary.main,
+                    bgcolor: theme =>
+                      theme.palette.mode === 'dark' ? '#333643' : 'white'
+                  },
+                  '& label.Mui-focused': {
+                    color: theme => theme.palette.primary.main
+                  },
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: theme => theme.palette.primary.main
+                    },
+                    '&:hover fieldset': {
+                      borderColor: theme => theme.palette.primary.main
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: theme => theme.palette.primary.main
+                    }
+                  },
+                  '& .MuiOutlinedInput-input': {
+                    borderRadius: 1
+                  }
+                }}
+              />
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }}
+              >
+                <Button
+                  onClick={addNewCard}
+                  variant="contained"
+                  color="success"
+                  size="small"
+                  sx={{
+                    boxShadow: 'none',
+                    border: '0.5px solid',
+                    borderColor: theme => theme.palette.success.main,
+                    '&:hover': {
+                      bgcolor: theme => theme.palette.success.main
+                    }
+                  }}
+                >
+                  Add
+                </Button>
+                <CloseIcon
+                  fontSize="small"
+                  sx={{
+                    color: theme => theme.palette.warning.light,
+                    cursor: 'pointer'
+                  }}
+                  onClick={toggleOpenNewCardForm}
+                />
+              </Box>
+            </Box>
+          )}
         </Box>
       </Box>
     </div>

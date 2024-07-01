@@ -1,7 +1,5 @@
 import Box from '@mui/material/Box'
 import ListWorkflows from '~/components/Workflows/ListWorkflows'
-import { UpdateWorkflowPosition } from '~/apis/Workflow'
-import { UpdateTaskCardPosition } from '~/apis/TaskCard'
 import {
   DndContext,
   MouseSensor,
@@ -26,7 +24,14 @@ const ACTIVE_DRAG_ITEM_TYPE = {
   CARD: 'ACTIVE_DRAG_ITEM_TYPE_CARD'
 }
 
-function BoardContent({ board, createNewWorkflow, moveWorkflows }) {
+function BoardContent({
+  board,
+  createNewWorkflow,
+  createNewTaskCard,
+  moveWorkflows,
+  moveCards,
+  deleteWorkflow
+}) {
   const mouseSensor = useSensor(MouseSensor, {
     activationConstraint: {
       distance: 10
@@ -233,7 +238,7 @@ function BoardContent({ board, createNewWorkflow, moveWorkflows }) {
             SpaceId: overWorkflow.id,
             NewPosition: newCardIndex
           }
-          UpdateTaskCardPosition(request)
+          moveCards(request)
         } catch (error) {
           setOrderedWorkflows(orderedWorkflows)
         }
@@ -271,7 +276,7 @@ function BoardContent({ board, createNewWorkflow, moveWorkflows }) {
               SpaceId: overWorkflow.id,
               NewPosition: newCardIndex
             }
-            UpdateTaskCardPosition(request)
+            moveCards(request)
           } catch (error) {
             setOrderedWorkflows(orderedWorkflows)
           }
@@ -387,6 +392,8 @@ function BoardContent({ board, createNewWorkflow, moveWorkflows }) {
         <ListWorkflows
           workflows={orderedWorkflows}
           createNewWorkflow={createNewWorkflow}
+          createNewTaskCard={createNewTaskCard}
+          deleteWorkflow={deleteWorkflow}
         />
         <DragOverlay dropAnimation={customDropAnimation}>
           {!activeDragItemType && null}

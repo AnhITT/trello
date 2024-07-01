@@ -10,6 +10,8 @@ namespace DataAccess_Layer.Models
         public Guid Id { get; set; }
         public string Description { get; set; }
         public bool IsCompleted { get; set; }
+        public Guid TaskId { get; set; }
+
         // n-1 CheckListItem - Task Card
         public Guid CheckListId { get; set; }
         public CheckList CheckLists { get; set; }

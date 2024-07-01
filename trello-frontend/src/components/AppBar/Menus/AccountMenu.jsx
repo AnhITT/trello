@@ -34,7 +34,7 @@ export default function AccountMenu() {
             <Avatar
               sx={{ width: 32, height: 32 }}
               alt="avatar"
-              src="https://scontent.fsgn2-6.fna.fbcdn.net/v/t39.30808-6/428624280_1080284179970282_4783097439728646945_n.jpg?_nc_cat=110&ccb=1-7&_nc_sid=5f2048&_nc_ohc=sVNFF65bLcsQ7kNvgFxzNZk&_nc_ht=scontent.fsgn2-6.fna&oh=00_AYAZEAQCX6nYZYmKD0EH_fs9fZccAP4Txui9vasOdq0mqA&oe=667B127D"
+              src="https://scontent.fsgn2-6.fna.fbcdn.net/v/t39.30808-6/428624280_1080284179970282_4783097439728646945_n.jpg?_nc_cat=110&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=moZi9S5YqiAQ7kNvgHwGepX&_nc_ht=scontent.fsgn2-6.fna&oh=00_AYDK3MxPXHOTO4eDSqTgpvydd-VofOR-SIknXa-YBO-fAg&oe=6688093D"
             />
           </IconButton>
         </Tooltip>

@@ -9,7 +9,8 @@ import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank'
+import CheckBoxIcon from '@mui/icons-material/CheckBox'
 function Card({ card }) {
   const {
     attributes,
@@ -22,9 +23,7 @@ function Card({ card }) {
 
   const shouldShowCardAction = () => {
     return (
-      !!card?.memberIds?.length ||
-      !!card?.comments?.length ||
-      !!card?.attachments?.length
+      card?.userCount != 0 || card?.totalChecklistItems != 0 || card?.files != 0
     )
   }
 
@@ -57,21 +56,28 @@ function Card({ card }) {
       </CardContent>
       {shouldShowCardAction() && (
         <CardActions sx={{ p: '0 4px 8px 4px' }}>
-          {!!card?.memberIds?.length && (
+          {card?.userCount != 0 && (
             <Button size="small" startIcon={<GroupIcon />}>
-              {card?.memberIds?.length}
+              {card?.userCount}
             </Button>
           )}
 
-          {!!card?.comments?.length && (
-            <Button size="small" startIcon={<CommentIcon />}>
-              {card?.comments?.length}
-            </Button>
-          )}
+          {card?.totalChecklistItems !== 0 &&
+            (card?.totalChecklistItems === card?.completedChecklistItems ? (
+              // Điều kiện khi totalChecklistItems === completedChecklistItems
+              <Button size="small" startIcon={<CheckBoxIcon />}>
+                {card?.completedChecklistItems}/{card?.totalChecklistItems}
+              </Button>
+            ) : (
+              // Điều kiện khi totalChecklistItems !== completedChecklistItems
+              <Button size="small" startIcon={<CheckBoxOutlineBlankIcon />}>
+                {card?.completedChecklistItems}/{card?.totalChecklistItems}
+              </Button>
+            ))}
 
-          {!!card?.attachments?.length && (
+          {card?.files !== 0 && (
             <Button size="small" startIcon={<AttachmentIcon />}>
-              {card?.attachments?.length}
+              {card?.files}
             </Button>
           )}
         </CardActions>

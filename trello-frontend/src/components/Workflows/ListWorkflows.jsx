@@ -4,7 +4,6 @@ import Workflows from './Workflow'
 import CloseIcon from '@mui/icons-material/Close'
 import NoteAddIcon from '@mui/icons-material/NoteAdd'
 import { TextField } from '@mui/material'
-import { AddWorkflow } from '~/apis/Workflow'
 import { toast } from 'react-toastify'
 import { useState } from 'react'
 import {
@@ -12,7 +11,12 @@ import {
   horizontalListSortingStrategy
 } from '@dnd-kit/sortable'
 
-function ListWorkflows({ workflows, createNewWorkflow }) {
+function ListWorkflows({
+  workflows,
+  createNewWorkflow,
+  createNewTaskCard,
+  deleteWorkflow
+}) {
   const [openNewWorkflowForm, setOpenNewWorkflowForm] = useState(false)
   const toggleOpenNewWorkflowForm = () =>
     setOpenNewWorkflowForm(!openNewWorkflowForm)
@@ -60,8 +64,8 @@ function ListWorkflows({ workflows, createNewWorkflow }) {
           <Workflows
             key={workflow.id}
             workflow={workflow}
-            // createNewCard={createNewCard}
-            // deleteWorkflowDetails={deleteWorkflowDetails}
+            createNewTaskCard={createNewTaskCard}
+            deleteWorkflow={deleteWorkflow}
           />
         ))}
 

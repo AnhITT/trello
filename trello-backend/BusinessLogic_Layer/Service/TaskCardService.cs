@@ -159,7 +159,7 @@ namespace BusinessLogic_Layer.Service
 
                 return new ResultObject
                 {
-                    Data = true,
+                    Data = mapApiTaskCard,
                     Success = true,
                     StatusCode = EnumStatusCodesResult.Success
                 };
@@ -447,6 +447,7 @@ namespace BusinessLogic_Layer.Service
                 #endregion
 
                 var mapApiCheckList = _mapper.Map<ApiCheckListItem, CheckListItem>(apiCheckListItem);
+                mapApiCheckList.TaskId = checkList.TaskId;
                 _unitOfWork.CheckListItemRepository.Add(mapApiCheckList);
                 _unitOfWork.SaveChanges();
                 return new ResultObject

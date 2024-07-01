@@ -5,6 +5,7 @@ using DataAccess_Layer.DTOs;
 using DataAccess_Layer.Models;
 using Microsoft.Extensions.Localization;
 using BusinessLogic_LayerDataAccess_Layer.Common;
+using System.Threading.Tasks;
 
 namespace BusinessLogic_Layer.Service
 {
@@ -25,6 +26,33 @@ namespace BusinessLogic_Layer.Service
             try
             {
                 var result = _unitOfWorkUpload.AttachmentFileRepository.GetAll();
+                return new ResultObject
+                {
+                    Data = result,
+                    Success = true,
+                    StatusCode = EnumStatusCodesResult.Success
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ResultObject
+                {
+                    Message = ex.Message,
+                    Success = false,
+                    StatusCode = EnumStatusCodesResult.InternalServerError
+                };
+            }
+            finally
+            {
+                _unitOfWorkUpload.Dispose();
+            }
+        }
+
+        public async Task<ResultObject> GetFileToTask(Guid idTask)
+        {
+            try
+            {
+                var result = _unitOfWorkUpload.AttachmentFileRepository.Find(n => n.TaskId == idTask).ToList();
                 return new ResultObject
                 {
                     Data = result,
@@ -75,7 +103,7 @@ namespace BusinessLogic_Layer.Service
                 foreach (var file in apiFileUpload.Files)
                 {
                     FileType fileType;
-                    if (Enum.TryParse(Path.GetExtension(file.FileName).ToLower().TrimStart('.'), 
+                    if (Enum.TryParse(Path.GetExtension(file.FileName).ToLower().TrimStart('.'),
                         true, out fileType) && fileType >= FileType.Sys)
                     {
                         fileSystem.Add(file.FileName);
