@@ -38,9 +38,9 @@ namespace Presentation_Layer.Controllers
         }
 
         [HttpGet("[action]")]
-        public async Task<IActionResult> GetAllProptiesFromBoard(Guid idBoard)
+        public async Task<IActionResult> GetAllPropertiesFromBoard(Guid idBoard)
         {
-            var respone = await _boardService.GetAllProptiesFromBoard(idBoard);
+            var respone = await _boardService.GetAllPropertiesFromBoard(idBoard);
             if (respone.Success == false)
                 BadRequest(respone);
 

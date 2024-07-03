@@ -88,7 +88,7 @@ namespace BusinessLogic_Layer.Service
                 _unitOfWork.Dispose();
             }
         }
-        public async Task<ResultObject> GetAllProptiesFromBoard(Guid idBoard)
+        public async Task<ResultObject> GetAllPropertiesFromBoard(Guid idBoard)
         {
             try
             {

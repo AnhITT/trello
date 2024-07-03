@@ -5,7 +5,7 @@ import { ToastContainer } from 'react-toastify'
 import CssBaseline from '@mui/material/CssBaseline'
 import 'react-toastify/dist/ReactToastify.css'
 import { Experimental_CssVarsProvider as CssVarsProvider } from '@mui/material/styles'
-import { ConfirmProvider } from 'material-ui-confirm' // Cấu hình Mui Dialog
+import { ConfirmProvider } from 'material-ui-confirm'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <CssVarsProvider theme={theme}>

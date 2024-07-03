@@ -2,12 +2,12 @@ import { instanceTrelloAPI } from '../Axios'
 
 const END_POINT = {
   Board: 'board',
-  GetAllProptiesFromBoard: 'GetAllProptiesFromBoard'
+  GetAllPropertiesFromBoard: 'GetAllProptiesFromBoard'
 }
 
-const GetAllProptiesFromBoard = idBoard => {
+const GetAllPropertiesFromBoard = idBoard => {
   return instanceTrelloAPI.get(
-    `${END_POINT.Board}/${END_POINT.GetAllProptiesFromBoard}?idBoard=${idBoard}`
+    `${END_POINT.Board}/${END_POINT.GetAllPropertiesFromBoard}?idBoard=${idBoard}`
   )
 }
-export { GetAllProptiesFromBoard }
+export { GetAllPropertiesFromBoard }
