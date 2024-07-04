@@ -1,5 +1,4 @@
 import Container from '@mui/material/Container'
-import AppBar from '~/components/AppBar'
 import BoardBar from '~/pages/Boards/BoardBar'
 import BoardContent from '~/pages/Boards/BoardContent'
 import { GetAllPropertiesFromBoard } from '~/apis/Board'
@@ -78,8 +77,7 @@ function Board() {
     setBoard(newBoard)
   }
   return (
-    <Container disableGutters maxWidth="false" sx={{ height: '100vh' }}>
-      <AppBar />
+    <Container disableGutters maxWidth="false" sx={{ height: '80vh' }}>
       <BoardBar board={board} />
       <BoardContent
         board={board}
