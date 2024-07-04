@@ -2,7 +2,7 @@ import { instanceTrelloAPI } from '../Axios'
 
 const END_POINT = {
   Board: 'board',
-  GetAllPropertiesFromBoard: 'GetAllProptiesFromBoard'
+  GetAllPropertiesFromBoard: 'GetAllPropertiesFromBoard'
 }
 
 const GetAllPropertiesFromBoard = idBoard => {

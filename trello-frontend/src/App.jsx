@@ -1,33 +1,33 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { publicRoutes } from '~/routers'
-import DefaultLayout from '~/components/Layout/DefaultLayout'
-import { Fragment } from 'react'
+import ThemeRoutes from '~/routers/index.jsx'
+import CustomizedProgressBars from '~/components/Loader'
+import { Suspense } from 'react'
 
 const App = () => {
   return (
     <Router>
-      <Routes>
-        {publicRoutes.map((route, index) => {
-          const Page = route.element
-          let Layout = DefaultLayout
-          if (route.layout) {
-            Layout = route.layout
-          } else if (route.layout === null) {
-            Layout = Fragment
-          }
-          return (
-            <Route
-              key={index}
-              path={route.path}
-              element={
-                <Layout>
-                  <Page />
-                </Layout>
-              }
-            />
-          )
-        })}
-      </Routes>
+      <Suspense fallback={<CustomizedProgressBars />}>
+        <Routes>
+          {ThemeRoutes.map((route, index) => {
+            if (route.children) {
+              return (
+                <Route key={index} path={route.path} element={route.element}>
+                  {route.children.map((child, idx) => (
+                    <Route
+                      key={idx}
+                      path={child.path}
+                      element={child.element}
+                    />
+                  ))}
+                </Route>
+              )
+            }
+            return (
+              <Route key={index} path={route.path} element={route.element} />
+            )
+          })}
+        </Routes>
+      </Suspense>
     </Router>
   )
 }

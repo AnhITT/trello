@@ -1,4 +1,3 @@
-import CommentIcon from '@mui/icons-material/Comment'
 import AttachmentIcon from '@mui/icons-material/Attachment'
 import GroupIcon from '@mui/icons-material/Group'
 import CardActions from '@mui/material/CardActions'
