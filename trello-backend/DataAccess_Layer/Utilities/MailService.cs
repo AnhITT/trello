@@ -24,7 +24,7 @@ namespace DataAccess_Layer.Utilities
                 mailrequest.ToEmail = user.Email;
                 mailrequest.Subject = "Gmail confirmation from Miko Tech";
                 string base64String = HtmlEmail.EncodeToBase64(user.Id.ToString(), token.TokenEmail);
-                var generateLink = $"https://localhost:7219/verify/register?code={base64String}";
+                var generateLink = $"http://localhost:5173/verify/register?code={base64String}";
                 mailrequest.Body = HtmlEmail.GetHtmlVerify(generateLink);
                 var email = new MimeMessage();
                 email.Sender = MailboxAddress.Parse(_mailSettings.Email);

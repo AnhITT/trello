@@ -10,8 +10,10 @@ import Tooltip from '@mui/material/Tooltip'
 import PersonAdd from '@mui/icons-material/PersonAdd'
 import Settings from '@mui/icons-material/Settings'
 import Logout from '@mui/icons-material/Logout'
+import { useAuth } from '~/context/AuthProvider'
 
 export default function AccountMenu() {
+  const { logout } = useAuth()
   const [anchorEl, setAnchorEl] = React.useState(null)
   const open = Boolean(anchorEl)
   const handleClick = event => {
@@ -19,6 +21,10 @@ export default function AccountMenu() {
   }
   const handleClose = () => {
     setAnchorEl(null)
+  }
+
+  const handleLogout = () => {
+    logout()
   }
   return (
     <React.Fragment>
@@ -34,7 +40,7 @@ export default function AccountMenu() {
             <Avatar
               sx={{ width: 32, height: 32 }}
               alt="avatar"
-              src="https://scontent.fsgn2-6.fna.fbcdn.net/v/t39.30808-6/428624280_1080284179970282_4783097439728646945_n.jpg?_nc_cat=110&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=moZi9S5YqiAQ7kNvgHwGepX&_nc_ht=scontent.fsgn2-6.fna&oh=00_AYDK3MxPXHOTO4eDSqTgpvydd-VofOR-SIknXa-YBO-fAg&oe=6688093D"
+              src="https://scontent.fsgn2-6.fna.fbcdn.net/v/t39.30808-6/428624280_1080284179970282_4783097439728646945_n.jpg?_nc_cat=110&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=hPhnDIispnUQ7kNvgHjBxUO&_nc_ht=scontent.fsgn2-6.fna&oh=00_AYAVaNG8wsTyq_ut-GxLlcT6o97VifpRa42Q7f4y2jEgJg&oe=66917BFD"
             />
           </IconButton>
         </Tooltip>
@@ -93,7 +99,7 @@ export default function AccountMenu() {
           </ListItemIcon>
           Settings
         </MenuItem>
-        <MenuItem onClick={handleClose}>
+        <MenuItem onClick={handleLogout}>
           <ListItemIcon>
             <Logout fontSize="small" />
           </ListItemIcon>

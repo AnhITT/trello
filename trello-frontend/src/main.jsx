@@ -6,28 +6,31 @@ import CssBaseline from '@mui/material/CssBaseline'
 import 'react-toastify/dist/ReactToastify.css'
 import { Experimental_CssVarsProvider as CssVarsProvider } from '@mui/material/styles'
 import { ConfirmProvider } from 'material-ui-confirm'
+import { HelmetProvider } from 'react-helmet-async'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <CssVarsProvider theme={theme}>
-    <ConfirmProvider
-      defaultOptions={{
-        dialogProps: {
-          maxWidth: 'xs'
-        },
-        confirmationButtonProps: {
-          color: 'secondary',
-          variant: 'outlined'
-        },
-        cancellationButtonProps: {
-          color: 'inherit'
-        },
-        allowClose: false,
-        buttonOrder: ['confirm', 'cancel']
-      }}
-    >
-      <CssBaseline />
-      <App />
-      <ToastContainer position="bottom-left" theme="colored" />
-    </ConfirmProvider>
+    <HelmetProvider>
+      <ConfirmProvider
+        defaultOptions={{
+          dialogProps: {
+            maxWidth: 'xs'
+          },
+          confirmationButtonProps: {
+            color: 'secondary',
+            variant: 'outlined'
+          },
+          cancellationButtonProps: {
+            color: 'inherit'
+          },
+          allowClose: false,
+          buttonOrder: ['confirm', 'cancel']
+        }}
+      >
+        <CssBaseline />
+        <App />
+        <ToastContainer position="bottom-left" theme="colored" />
+      </ConfirmProvider>
+    </HelmetProvider>
   </CssVarsProvider>
 )

@@ -9,7 +9,7 @@ const END_POINT = {
   ConfirmOTPChangePassword: 'ConfirmOTPChangePassword'
 }
 
-const Login = request => {
+const LoginAPI = request => {
   return instanceTrelloAPI.post(
     `${END_POINT.Auth}/${END_POINT.Login}`,
     request,
@@ -21,7 +21,7 @@ const Login = request => {
   )
 }
 
-const Register = request => {
+const RegisterAPI = request => {
   return instanceTrelloAPI.post(
     `${END_POINT.Auth}/${END_POINT.Register}`,
     request,
@@ -33,19 +33,19 @@ const Register = request => {
   )
 }
 
-const VerifyEmail = tokenEncode => {
+const VerifyEmailAPI = tokenEncode => {
   return instanceTrelloAPI.post(
     `${END_POINT.Auth}/${END_POINT.VerifyEmail}?tokenEncode=${tokenEncode}`
   )
 }
 
-const ForgotPassword = email => {
+const ForgotPasswordAPI = email => {
   return instanceTrelloAPI.post(
     `${END_POINT.Auth}/${END_POINT.ForgotPassword}?email=${email}`
   )
 }
 
-const ConfirmOTPChangePassword = request => {
+const ConfirmOTPChangePasswordAPI = request => {
   return instanceTrelloAPI.post(
     `${END_POINT.Auth}/${END_POINT.ConfirmOTPChangePassword}`,
     request,
@@ -58,9 +58,9 @@ const ConfirmOTPChangePassword = request => {
 }
 
 export {
-  Login,
-  Register,
-  VerifyEmail,
-  ForgotPassword,
-  ConfirmOTPChangePassword
+  LoginAPI,
+  RegisterAPI,
+  VerifyEmailAPI,
+  ForgotPasswordAPI,
+  ConfirmOTPChangePasswordAPI
 }

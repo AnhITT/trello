@@ -135,6 +135,9 @@
   <data name="Comment" xml:space="preserve">
     <value>Comment</value>
   </data>
+  <data name="ConfirmEmailSuccessful" xml:space="preserve">
+    <value>Confirm Email Successful!</value>
+  </data>
   <data name="Create" xml:space="preserve">
     <value>Create</value>
   </data>
