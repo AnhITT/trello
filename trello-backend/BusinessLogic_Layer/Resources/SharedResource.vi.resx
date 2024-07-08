@@ -135,6 +135,9 @@
   <data name="Comment" xml:space="preserve">
     <value>Bình luận</value>
   </data>
+  <data name="ConfirmEmailSuccessful" xml:space="preserve">
+    <value>Xác nhận email thành công!</value>
+  </data>
   <data name="Create" xml:space="preserve">
     <value>Tạo</value>
   </data>

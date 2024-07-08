@@ -234,7 +234,7 @@ namespace BusinessLogic_Layer.Service
 
                 return new ResultObject
                 {
-                    Data = true,
+                    Data = $"{_localizer[SharedResourceKeys.ConfirmEmailSuccessful]}",
                     Success = true,
                     StatusCode = EnumStatusCodesResult.Success
                 };
