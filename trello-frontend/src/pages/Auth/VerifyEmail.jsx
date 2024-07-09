@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '~/context/AuthProvider'
 import { NavLink as RouterLink } from 'react-router-dom'
 import { Box, Typography, Container, Card, Button } from '@mui/material'
-import TrelloIcon from '~/assets/trello.svg?react'
+import TrelloIcon from '~/assets/svg/trello.svg?react'
 import SvgIcon from '@mui/material/SvgIcon'
 
 const VerifyEmailSuccess = () => {

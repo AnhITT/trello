@@ -22,7 +22,7 @@ namespace DataAccess_Layer.Utilities
             {
                 MailRequest mailrequest = new MailRequest();
                 mailrequest.ToEmail = user.Email;
-                mailrequest.Subject = "Gmail confirmation from Miko Tech";
+                mailrequest.Subject = "Gmail confirmation from Trello";
                 string base64String = HtmlEmail.EncodeToBase64(user.Id.ToString(), token.TokenEmail);
                 var generateLink = $"http://localhost:5173/verify/register?code={base64String}";
                 mailrequest.Body = HtmlEmail.GetHtmlVerify(generateLink);
@@ -78,7 +78,7 @@ namespace DataAccess_Layer.Utilities
             {
                 MailRequest mailrequest = new MailRequest();
                 mailrequest.ToEmail = otp.Email;
-                mailrequest.Subject = "Gmail reset password from Miko Tech";
+                mailrequest.Subject = "Gmail reset password from Trello";
                 mailrequest.Body = HtmlEmail.GetHtmlResetPassword(otp.OTP);
                 var email = new MimeMessage();
                 email.Sender = MailboxAddress.Parse(_mailSettings.Email);

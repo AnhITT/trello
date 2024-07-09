@@ -8,8 +8,10 @@ const BoardLayout = lazy(() => import('~/components/Layout/BoardLayout'))
 const Board = lazy(() => import('~/pages/Boards/_id'))
 const NotFound = lazy(() => import('~/pages/NotFound/NotFound'))
 const Workspaces = lazy(() => import('~/pages/Workspaces'))
-const Login = lazy(() => import('~/pages/Auth/index'))
+const Login = lazy(() => import('~/pages/Auth/Login.jsx'))
+const Register = lazy(() => import('~/pages/Auth/Register.jsx'))
 const VerifyEmail = lazy(() => import('~/pages/Auth/VerifyEmail'))
+const Chat = lazy(() => import('~/pages/Chat'))
 
 /*****Routes******/
 const PublicRoutes = [
@@ -17,7 +19,9 @@ const PublicRoutes = [
     element: null,
     children: [
       { path: '/', element: <Login /> },
-      { path: '/verify/register', element: <VerifyEmail /> }
+      { path: '/register', element: <Register /> },
+      { path: '/verify/register', element: <VerifyEmail /> },
+      { path: '/chat', element: <Chat /> }
     ]
   },
   {

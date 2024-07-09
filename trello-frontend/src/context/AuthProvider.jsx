@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
 import Cookies from 'js-cookie'
 import {
   LoginAPI,
@@ -8,6 +8,7 @@ import {
   ConfirmOTPChangePasswordAPI
 } from '~/apis/Auth'
 import { toast } from 'react-toastify'
+import { jwtDecode } from 'jwt-decode'
 
 const AuthContext = createContext()
 
@@ -16,13 +17,25 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(Cookies.get('token') || null)
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    if (token) {
+      try {
+        const decodedUser = jwtDecode(token)
+        setUser(decodedUser)
+      } catch (error) {
+        setUser(null)
+      }
+    }
+  }, [token])
+
   const login = async loginRequest => {
     setLoading(true)
     try {
       const response = await LoginAPI(loginRequest)
       if (response.statusCode === 200) {
         Cookies.set('token', response.data)
-        setUser(response.data)
+        const decodedUser = jwtDecode(response.data)
+        setUser(decodedUser)
         toast('Login Successful!', {
           position: 'top-right',
           autoClose: 5000,
@@ -98,6 +111,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         token,
+        user,
         login,
         register,
         logout,

@@ -13,12 +13,13 @@ import Logout from '@mui/icons-material/Logout'
 import { useAuth } from '~/context/AuthProvider'
 
 export default function AccountMenu() {
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
   const [anchorEl, setAnchorEl] = React.useState(null)
   const open = Boolean(anchorEl)
   const handleClick = event => {
     setAnchorEl(event.currentTarget)
   }
+  console.log('value: ', user)
   const handleClose = () => {
     setAnchorEl(null)
   }
@@ -80,6 +81,9 @@ export default function AccountMenu() {
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
+        <MenuItem onClick={handleClose}>
+          <Avatar /> {user.LastName}
+        </MenuItem>
         <MenuItem onClick={handleClose}>
           <Avatar /> Profile
         </MenuItem>

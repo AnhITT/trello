@@ -14,6 +14,7 @@ using System.Text;
 using Elasticsearch.Net;
 using Nest;
 using BusinessLogic_LayerDataAccess_Layer.Common;
+using Presentation_Layer.Hubs;
 
 namespace Presentation_Layer
 {
@@ -48,6 +49,7 @@ namespace Presentation_Layer
             var client = new ElasticClient(settings);
             
             services.AddSingleton<IElasticClient>(client);
+            services.AddSignalR();
         }
 
         public static void ConfigureServices(WebApplicationBuilder builder)
@@ -89,6 +91,19 @@ namespace Presentation_Layer
             builder.Services.AddHttpContextAccessor();
 
             builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("CorsPolicy", builder =>
+                {
+                    builder.WithOrigins("http://localhost:5173")
+                           .AllowAnyHeader()
+                           .AllowAnyMethod()
+                           .AllowCredentials();
+                });
+            });
+
+            builder.Services.AddSignalR();
         }
 
         public static async void ConfigureAppsAsync(WebApplication app, bool isUploadFile = false, bool isSignal = false, bool isSendNotify = false, string connStr = null)
@@ -104,11 +119,9 @@ namespace Presentation_Layer
                 .AddSupportedUICultures(supportedCultures);
 
             localizationOptions.ApplyCurrentCultureToResponseHeaders = true;
-            app.UseCors(builder =>
-            {
-                builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
-            });
+            app.UseCors("CorsPolicy");
             app.UseRequestLocalization(localizationOptions);
+            app.MapHub<ChatHub>("/chatHub");
             app.Run();
         }
     }
