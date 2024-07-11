@@ -7,7 +7,7 @@ namespace UploadFile.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize]
+    [Authorize]
     public class FileUploadController : ControllerBase
     {
         private readonly UploadService _uploadService;

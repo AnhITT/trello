@@ -1,4 +1,4 @@
-﻿namespace Presentation_Layer.Hubs
+﻿namespace Chat.Hubs
 {
     using System.Threading.Tasks;
     using Microsoft.AspNetCore.SignalR;

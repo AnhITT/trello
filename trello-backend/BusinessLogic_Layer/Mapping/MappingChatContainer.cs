@@ -2,9 +2,9 @@
 
 namespace BusinessLogic_Layer.Mapping
 {
-    public class MappingChatContainer : Profile
+    public class MappingUploadContainer : Profile
     {
-        public MappingChatContainer()
+        public MappingUploadContainer()
         {
             
         }

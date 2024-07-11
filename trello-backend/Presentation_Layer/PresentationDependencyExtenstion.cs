@@ -14,7 +14,6 @@ using System.Text;
 using Elasticsearch.Net;
 using Nest;
 using BusinessLogic_LayerDataAccess_Layer.Common;
-using Presentation_Layer.Hubs;
 
 namespace Presentation_Layer
 {
@@ -121,7 +120,6 @@ namespace Presentation_Layer
             localizationOptions.ApplyCurrentCultureToResponseHeaders = true;
             app.UseCors("CorsPolicy");
             app.UseRequestLocalization(localizationOptions);
-            app.MapHub<ChatHub>("/chatHub");
             app.Run();
         }
     }
