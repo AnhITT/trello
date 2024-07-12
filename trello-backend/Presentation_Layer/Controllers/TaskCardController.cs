@@ -7,7 +7,7 @@ namespace Presentation_Layer.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize]
+    [Authorize]
     public class TaskCardController : ControllerBase
     {
         private readonly TaskCardService _taskCardService;

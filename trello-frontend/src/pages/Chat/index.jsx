@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import * as signalR from '@microsoft/signalr'
-import AppBar from '@mui/material/AppBar'
-import Toolbar from '@mui/material/Toolbar'
 import Grid from '@mui/material/Grid'
 import Paper from '@mui/material/Paper'
 import List from '@mui/material/List'
@@ -34,7 +32,7 @@ const Chat = () => {
 
   useEffect(() => {
     const newConnection = new signalR.HubConnectionBuilder()
-      .withUrl('https://localhost:7033/chatHub', {
+      .withUrl('https://localhost:7181/chatHub', {
         skipNegotiation: true,
         transport: signalR.HttpTransportType.WebSockets
       })
@@ -94,17 +92,12 @@ const Chat = () => {
 
   return (
     <div>
-      <AppBar position="static">
-        <Toolbar>
-          <h3>Chat App</h3>
-        </Toolbar>
-      </AppBar>
       <Grid container spacing={1} style={{ marginTop: '10px' }}>
         <Grid item xs={3}>
           <Paper
             elevation={3}
             style={{
-              height: '88.5vh',
+              height: '85.5vh',
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column'
@@ -149,6 +142,7 @@ const Chat = () => {
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
+                    marginBottom: '1px',
                     borderRadius: '10px',
                     backgroundColor:
                       selectedUser?.id === user.id
@@ -184,7 +178,11 @@ const Chat = () => {
         <Grid item xs={8.9}>
           <Paper
             elevation={3}
-            style={{ height: '88vh', overflowY: 'auto', position: 'relative' }}
+            style={{
+              height: '85.5vh',
+              overflowY: 'auto',
+              position: 'relative'
+            }}
           >
             {selectedUser && (
               <div

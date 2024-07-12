@@ -1,10 +1,5 @@
 ﻿using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Bson;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DataAccess_Layer.DTOs
 {
@@ -13,7 +8,6 @@ namespace DataAccess_Layer.DTOs
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; }
-
         [BsonElement("FirstName")]
         public string FirstName { get; set; }
         [BsonElement("LastName")]

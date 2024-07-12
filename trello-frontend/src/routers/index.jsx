@@ -3,6 +3,7 @@ import { Outlet, Navigate } from 'react-router-dom'
 import { useAuth } from '~/context/AuthProvider'
 /****Layouts*****/
 const BoardLayout = lazy(() => import('~/components/Layout/BoardLayout'))
+const MainLayout = lazy(() => import('~/components/Layout/MainLayout'))
 
 /***** Pages ****/
 const Board = lazy(() => import('~/pages/Boards/_id'))
@@ -16,7 +17,7 @@ const Chat = lazy(() => import('~/pages/Chat'))
 /*****Routes******/
 const PublicRoutes = [
   {
-    element: null,
+    element: <MainLayout />,
     children: [
       { path: '/', element: <Login /> },
       { path: '/register', element: <Register /> },

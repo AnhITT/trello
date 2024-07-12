@@ -8,7 +8,7 @@ namespace Presentation_Layer.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize]
+    [Authorize]
     public class WorkflowController : ControllerBase
     {
         private readonly WorkflowService _workflowService;
