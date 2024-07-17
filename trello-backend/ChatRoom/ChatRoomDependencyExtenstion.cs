@@ -4,9 +4,9 @@ using DataAccess_Layer.DTOs;
 using DataAccess_Layer.Interfaces;
 using DataAccess_Layer.UnitOfWorks;
 
-namespace Chat
+namespace ChatRoom
 {
-    public static class ChatDependencyExtenstion
+    public static class ChatRoomDependencyExtenstion
     {
         public static void AddRepository(this IServiceCollection services)
         {
@@ -14,8 +14,6 @@ namespace Chat
             services.AddLogging();
             services.AddAutoMapper(typeof(MappingChatContainer));
             services.AddHttpClient();
-            services.AddTransient<ChatService>();
-
         }
 
         public static void ConfigureServices(WebApplicationBuilder builder)
@@ -27,7 +25,8 @@ namespace Chat
             builder.Services.AddMemoryCache();
             builder.Services.AddOptions();
             builder.Services.AddHttpContextAccessor();
-
+            builder.Services.AddSingleton<GroupChatService>();
+            builder.Services.AddSingleton<MessageService>();
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("CorsPolicy", builder =>

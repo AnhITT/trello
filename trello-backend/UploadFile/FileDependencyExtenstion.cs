@@ -22,7 +22,6 @@ namespace UploadFile
             services.AddLogging();
             services.AddAutoMapper(typeof(MappingUploadContainer));
             services.AddScoped<CallApi>();
-            services.AddScoped<Auth>();
 
             services.AddHttpClient();
         }

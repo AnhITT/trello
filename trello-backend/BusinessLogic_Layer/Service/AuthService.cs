@@ -5,8 +5,10 @@ using BusinessLogic_Layer.Enums;
 using DataAccess_Layer.Interfaces;
 using DataAccess_Layer.Models;
 using DataAccess_Layer.Utilities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace BusinessLogic_Layer.Service
 {
@@ -18,6 +20,7 @@ namespace BusinessLogic_Layer.Service
         private readonly Generate _generate;
         private readonly IStringLocalizer<SharedResource> _localizer;
         private readonly ElasticsearchService _elasticsearchService;
+        private readonly IHttpContextAccessor _contextAccessor;
 
         public AuthService(IUnitOfWork unitOfWork, IMapper mapper, MailService mailService,
             Generate generate, IStringLocalizer<SharedResource> localizer, ElasticsearchService elasticsearchService)
@@ -28,6 +31,7 @@ namespace BusinessLogic_Layer.Service
             _generate = generate;
             _localizer = localizer;
             _elasticsearchService = elasticsearchService;
+            _contextAccessor = new HttpContextAccessor();
         }
         public async Task<ResultObject> Login(LoginRequest loginRequest)
         {
@@ -391,5 +395,38 @@ namespace BusinessLogic_Layer.Service
                 _unitOfWork.Dispose();
             }
         }
+        
+        #region Get UserCurrent
+        public string GetAccessToken()
+        {
+            var context = _contextAccessor.HttpContext;
+
+            if (context != null && context.Request.Headers.ContainsKey("Authorization"))
+            {
+                var authHeader = context.Request.Headers["Authorization"].ToString();
+                if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    return authHeader.Substring("Bearer ".Length).Trim();
+                }
+            }
+
+            return null;
+        }
+        public string GetUserIdCurrent()
+        {
+            var jwt = GetAccessToken();
+            if (jwt == null)
+            {
+                return null;
+            }
+
+            var handler = new JwtSecurityTokenHandler();
+            var token = handler.ReadJwtToken(jwt);
+            var userIdClaim = token.Claims.FirstOrDefault(claim => claim.Type == "Id");
+
+            return userIdClaim?.Value;
+        }
+        #endregion
+
     }
 }

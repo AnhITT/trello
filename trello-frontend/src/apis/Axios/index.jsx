@@ -1,60 +1,41 @@
 import axios from 'axios'
-import { API_ROOT } from '~/utils/constants'
+import { API_ROOT, API_ROOT_CHAT, API_ROOT_UPLOAD } from '~/utils/constants'
 import Cookies from 'js-cookie'
 
-const instanceTrelloAPI = axios.create({
-  baseURL: API_ROOT
-})
+// Function to create axios instance with token interceptor
+const createInstance = baseURL => {
+  const instance = axios.create({
+    baseURL
+  })
 
-// Add a request interceptor to attach the token to all requests
-instanceTrelloAPI.interceptors.request.use(
-  config => {
-    const token = Cookies.get('token')
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`
+  instance.interceptors.request.use(
+    config => {
+      const token = Cookies.get('token')
+      if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`
+      }
+      return config
+    },
+    error => {
+      return Promise.reject(error)
     }
-    return config
-  },
-  error => {
-    return Promise.reject(error)
-  }
-)
+  )
 
-instanceTrelloAPI.interceptors.response.use(
-  response => {
-    return response.data
-  },
-  error => {
-    console.log(error)
-    return Promise.reject(error)
-  }
-)
-
-const instanceTrelloFileAPI = axios.create({
-  baseURL: process.env.REACT_APP_TRELLOFILE_API
-})
-
-instanceTrelloFileAPI.interceptors.request.use(
-  config => {
-    const token = Cookies.get('token')
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`
+  instance.interceptors.response.use(
+    response => {
+      return response.data
+    },
+    error => {
+      return Promise.reject(error)
     }
-    return config
-  },
-  error => {
-    return Promise.reject(error)
-  }
-)
+  )
 
-instanceTrelloFileAPI.interceptors.response.use(
-  response => {
-    return response.data
-  },
-  error => {
-    console.log(error)
-    return Promise.reject(error)
-  }
-)
+  return instance
+}
 
-export { instanceTrelloAPI, instanceTrelloFileAPI }
+// Create instances for each API root
+const instanceTrelloAPI = createInstance(API_ROOT)
+const instanceChatAPI = createInstance(API_ROOT_CHAT)
+const instanceUploadAPI = createInstance(API_ROOT_UPLOAD)
+
+export { instanceTrelloAPI, instanceChatAPI, instanceUploadAPI }

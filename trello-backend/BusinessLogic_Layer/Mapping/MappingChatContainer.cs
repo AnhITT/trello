@@ -1,4 +1,6 @@
 ﻿using AutoMapper;
+using BusinessLogic_Layer.Entity;
+using DataAccess_Layer.Models;
 
 namespace BusinessLogic_Layer.Mapping
 {
@@ -6,7 +8,8 @@ namespace BusinessLogic_Layer.Mapping
     {
         public MappingUploadContainer()
         {
-            
+            CreateMap<ApiChat, Chat>().ReverseMap();
+            CreateMap<ApiMessage, Message>().ReverseMap();
         }
     }
 }

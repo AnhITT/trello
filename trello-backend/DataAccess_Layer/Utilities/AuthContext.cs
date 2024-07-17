@@ -1,16 +1,22 @@
 ﻿using Microsoft.AspNetCore.Http;
+using System;
+using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace DataAccess_Layer.Common
+namespace DataAccess_Layer.Utilities
 {
-    public class Auth
+    public class AuthContext
     {
         private readonly IHttpContextAccessor _contextAccessor;
-        
-        public Auth(IHttpContextAccessor contextAccessor)
+
+        public AuthContext()
         {
-            _contextAccessor = contextAccessor;
+            _contextAccessor = new HttpContextAccessor();
         }
+
         public string GetAccessToken()
         {
             var context = _contextAccessor.HttpContext;
@@ -26,6 +32,7 @@ namespace DataAccess_Layer.Common
 
             return null;
         }
+
         public string GetUserIdCurrent()
         {
             var jwt = GetAccessToken();

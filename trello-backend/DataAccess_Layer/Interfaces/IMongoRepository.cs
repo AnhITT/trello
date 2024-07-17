@@ -13,6 +13,6 @@ namespace DataAccess_Layer.Interfaces
         Task<IEnumerable<T>> GetAllAsync();
         Task AddAsync(T entity);
         Task UpdateAsync(ObjectId id, T entity);
-        Task DeleteAsync(ObjectId id);
+        Task DeleteAsync(ObjectId id, T entity);
     }
 }

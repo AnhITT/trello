@@ -1,5 +1,4 @@
 import AppBar from '@mui/material/AppBar'
-import Toolbar from '@mui/material/Toolbar'
 import { Box, Typography } from '@mui/material'
 import TrelloIcon from '~/assets/svg/trello.svg?react'
 import { NavLink as RouterLink } from 'react-router-dom'

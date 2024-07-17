@@ -1,66 +1,38 @@
-import React, { useEffect, useState } from 'react'
-import * as signalR from '@microsoft/signalr'
+import { useEffect, useState } from 'react'
 import Grid from '@mui/material/Grid'
 import Paper from '@mui/material/Paper'
 import List from '@mui/material/List'
 import Box from '@mui/material/Box'
 import ListItem from '@mui/material/ListItem'
-import ListItemText from '@mui/material/ListItemText'
 import TextField from '@mui/material/TextField'
 import Avatar from '@mui/material/Avatar'
 import SearchIcon from '@mui/icons-material/Search'
 import CloseIcon from '@mui/icons-material/Close'
-import { InputAdornment } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import AttachFileIcon from '@mui/icons-material/AttachFile'
 import CallIcon from '@mui/icons-material/Call'
 import VideoCallIcon from '@mui/icons-material/VideoCall'
+import ListItemText from '@mui/material/ListItemText'
 import InfoIcon from '@mui/icons-material/Info'
 import ImageIcon from '@mui/icons-material/Image'
 import GifBoxIcon from '@mui/icons-material/GifBox'
 import AddReactionIcon from '@mui/icons-material/AddReaction'
 import SendIcon from '@mui/icons-material/Send'
+import { InputAdornment } from '@mui/material'
 import { GetAllUserAPI } from '~/apis/User'
-//aes c#
+import { GetAllPropertiesFromBoard } from '~/apis/Chat'
+import Message from '~/components/Message'
+import { useAuth } from '~/context/AuthProvider'
+
 const Chat = () => {
   const [searchText, setSearchText] = useState('')
-  const [connection, setConnection] = useState(null)
-  const [messages, setMessages] = useState([])
   const [message, setMessage] = useState('')
   const [users, setUsers] = useState([])
   const [selectedUser, setSelectedUser] = useState(null)
+  const [messages, setMessages] = useState([])
+  const { user } = useAuth()
 
   useEffect(() => {
-    const newConnection = new signalR.HubConnectionBuilder()
-      .withUrl('https://localhost:7181/chatHub', {
-        skipNegotiation: true,
-        transport: signalR.HttpTransportType.WebSockets
-      })
-      .withAutomaticReconnect()
-      .build()
-
-    setConnection(newConnection)
-  }, [])
-
-  useEffect(() => {
-    if (connection) {
-      connection
-        .start()
-        .then(result => {
-          console.log('Connected!')
-
-          connection.on('ReceiveMessage', (user, message) => {
-            const updatedMessages = [...messages]
-            updatedMessages.push({ user, message })
-            setMessages(updatedMessages)
-          })
-        })
-        .catch(e => console.log('Connection failed: ', e))
-    }
-  }, [connection, messages])
-
-  useEffect(() => {
-    // Gọi API để lấy danh sách người dùng khi component được mount
     const fetchUsers = async () => {
       try {
         const response = await GetAllUserAPI()
@@ -77,16 +49,17 @@ const Chat = () => {
     fetchUsers()
   }, [])
 
-  const sendMessage = async () => {
-    if (connection) {
-      try {
-        await connection.send('SendMessage', message)
-        setMessage('')
-      } catch (e) {
-        console.log(e)
+  const handleUserClick = async userFocus => {
+    setSelectedUser(userFocus)
+    try {
+      const response = await GetAllPropertiesFromBoard(user.Id, userFocus.id)
+      if (response.statusCode === 200) {
+        setMessages(response.data.messages)
+      } else {
+        setMessages('')
       }
-    } else {
-      alert('No connection to server yet.')
+    } catch (error) {
+      setMessages('')
     }
   }
 
@@ -134,11 +107,11 @@ const Chat = () => {
               }}
             />
             <List sx={{ paddingX: '10px', flexGrow: 1, overflowY: 'auto' }}>
-              {users.map((user, index) => (
+              {users.map(user => (
                 <ListItem
                   key={user.id}
                   button
-                  onClick={() => setSelectedUser(user)}
+                  onClick={() => handleUserClick(user)}
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
@@ -157,18 +130,11 @@ const Chat = () => {
                     sx={{ width: 60, height: 60, marginRight: '10px' }}
                     src={
                       user.avatarUrl ||
-                      'https://scontent.fsgn2-6.fna.fbcdn.net/v/t39.30808-6/428624280_1080284179970282_4783097439728646945_n.jpg?_nc_cat=110&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=0IgNVRfVQHwQ7kNvgHHHET1&_nc_ht=scontent.fsgn2-6.fna&oh=00_AYA7RGpLXIPL38mDqVJNkRPtbr407y8gvQfoxv-2C4VWsw&oe=6692CD7D'
+                      'https://cdn.iconscout.com/icon/free/png-256/free-avatar-370-456322.png'
                     }
                   />
                   <div style={{ flexGrow: 1 }}>
-                    <ListItemText
-                      primary={user.lastName}
-                      secondary={`Last message: ${
-                        messages.length > 0
-                          ? messages[messages.length - 1].message
-                          : ''
-                      }`}
-                    />
+                    <ListItemText primary={user.lastName} />
                   </div>
                 </ListItem>
               ))}
@@ -188,7 +154,6 @@ const Chat = () => {
               <div
                 style={{
                   padding: '10px',
-                  backgroundColor: '#f5f5f5',
                   borderBottom: '1px solid #ddd',
                   display: 'flex',
                   alignItems: 'center',
@@ -200,7 +165,7 @@ const Chat = () => {
                     sx={{ width: 40, height: 40, marginRight: '10px' }}
                     src={
                       selectedUser.avatarUrl ||
-                      'https://scontent.fsgn2-6.fna.fbcdn.net/v/t39.30808-6/428624280_1080284179970282_4783097439728646945_n.jpg?_nc_cat=110&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=0IgNVRfVQHwQ7kNvgHHHET1&_nc_ht=scontent.fsgn2-6.fna&oh=00_AYA7RGpLXIPL38mDqVJNkRPtbr407y8gvQfoxv-2C4VWsw&oe=6692CD7D'
+                      'https://cdn.iconscout.com/icon/free/png-256/free-avatar-370-456322.png'
                     }
                   />
                   <div>
@@ -223,12 +188,40 @@ const Chat = () => {
                 </div>
               </div>
             )}
-            <List>
-              {messages.map((msg, index) => (
-                <ListItem key={index}>
-                  <ListItemText primary={`${msg.user}: ${msg.message}`} />
+            <List sx={{ padding: '10px', flexGrow: 1, overflowY: 'auto' }}>
+              {messages?.length > 0 ? (
+                messages.map((msg, index) => (
+                  <Message
+                    key={index}
+                    userId={user.Id}
+                    sender={msg.sender}
+                    text={msg.text}
+                  />
+                ))
+              ) : (
+                <ListItem
+                  disablePadding
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: '100%'
+                  }}
+                >
+                  <button
+                    onClick={() => console.log('Start chat')}
+                    style={{
+                      padding: '10px',
+                      borderRadius: '10px',
+                      border: '1px solid #ddd',
+                      background: '#f5f5f5',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Bắt đầu
+                  </button>
                 </ListItem>
-              ))}
+              )}
             </List>
             <div
               style={{
@@ -260,11 +253,6 @@ const Chat = () => {
                 size="small"
                 value={message}
                 onChange={e => setMessage(e.target.value)}
-                onKeyPress={e => {
-                  if (e.key === 'Enter') {
-                    sendMessage()
-                  }
-                }}
                 sx={{
                   borderRadius: '20px'
                 }}
@@ -275,7 +263,6 @@ const Chat = () => {
                       sx={{
                         cursor: 'pointer'
                       }}
-                      onClick={() => setSearchText('')}
                     />
                   )
                 }}
@@ -286,10 +273,7 @@ const Chat = () => {
                   alignItems: 'center'
                 }}
               >
-                <SendIcon
-                  sx={{ marginX: '15px', cursor: 'pointer' }}
-                  onClick={sendMessage}
-                />
+                <SendIcon sx={{ marginX: '15px', cursor: 'pointer' }} />
               </Box>
             </div>
           </Paper>

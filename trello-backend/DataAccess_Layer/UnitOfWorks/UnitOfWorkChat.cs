@@ -11,8 +11,7 @@ namespace DataAccess_Layer.UnitOfWorks
     {
         private readonly IMongoDatabase _database;
         private readonly MongoDBSetting _settings;
-        private IMongoRepository<Message> _messages;
-        private IMongoRepository<GroupChat> _groupChats;
+        private IMongoRepository<Chat> _chats;
 
         public UnitOfWorkChat(IOptions<MongoDBSetting> settings)
         {
@@ -21,16 +20,7 @@ namespace DataAccess_Layer.UnitOfWorks
             _database = client.GetDatabase(_settings.DatabaseName);
         }
 
-        public IMongoRepository<Message> MessageRepository => _messages ??= new MongoRepository<Message>(_database, "Messages");
-        public IMongoRepository<GroupChat> GroupChatRepository => _groupChats ??= new MongoRepository<GroupChat>(_database, "GroupChats");
+        public IMongoRepository<Chat> ChatRepository => _chats ??= new MongoRepository<Chat>(_database, "Chats");
 
-        public async Task<int> SaveChangesAsync()
-        {
-            return await Task.FromResult(0);
-        }
-
-        public void Dispose()
-        {
-        }
     }
 }

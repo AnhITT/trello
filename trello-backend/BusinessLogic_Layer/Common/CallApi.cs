@@ -4,7 +4,6 @@ using Microsoft.Extensions.Configuration;
 using BusinessLogic_Layer.Entity;
 using DataAccess_Layer.Models;
 using Newtonsoft.Json;
-using System.Threading.Tasks;
 
 namespace BusinessLogic_LayerDataAccess_Layer.Common
 {
@@ -14,7 +13,6 @@ namespace BusinessLogic_LayerDataAccess_Layer.Common
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
-
         public CallApi(IHttpContextAccessor httpContextAccessor, HttpClient httpClient, IConfiguration configuration)
         {
             _httpContextAccessor = httpContextAccessor;

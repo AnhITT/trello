@@ -1,38 +1,52 @@
 ﻿using AutoMapper;
-using BusinessLogic_Layer.Common;
+using DataAccess_Layer.Common;
 using BusinessLogic_Layer.Entity;
 using BusinessLogic_Layer.Enums;
-using DataAccess_Layer.DTOs;
 using DataAccess_Layer.Interfaces;
 using DataAccess_Layer.Models;
 using Microsoft.Extensions.Localization;
 using MongoDB.Bson;
+using Microsoft.AspNetCore.Http;
+using System.IdentityModel.Tokens.Jwt;
+using Nest;
 
 namespace BusinessLogic_Layer.Service
 {
-    public class GroupChatService
+    public class ChatService
     {
         private readonly IUnitOfWorkChat _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IHttpContextAccessor _contextAccessor;
         private readonly IStringLocalizer<SharedResource> _localizer;
-
-        public GroupChatService(IUnitOfWorkChat unitOfWork, IMapper mapper, IStringLocalizer<SharedResource> localizer)
+        public ChatService(IUnitOfWorkChat unitOfWork, IMapper mapper, IStringLocalizer<SharedResource> localizer)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _contextAccessor = new HttpContextAccessor();
             _localizer = localizer;
         }
 
-        public async Task CreateGroupChatAsync(GroupChat groupChat)
+        public async Task<ResultObject> CreateChatAsync(ApiChat apiChat)
         {
             try
             {
-                await _unitOfWork.GroupChatRepository.AddAsync(groupChat);
-                await _unitOfWork.SaveChangesAsync();
+                var mapApiChat = _mapper.Map<ApiChat, Chat>(apiChat);
+                await _unitOfWork.ChatRepository.AddAsync(mapApiChat);
+                return new ResultObject
+                {
+                    Data = true,
+                    Success = true,
+                    StatusCode = EnumStatusCodesResult.Success
+                };
             }
             catch (Exception ex)
             {
-                // Handle exception
+                return new ResultObject
+                {
+                    Message = ex.Message,
+                    Success = false,
+                    StatusCode = EnumStatusCodesResult.InternalServerError
+                };
             }
         }
 
@@ -40,7 +54,7 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                var data = _unitOfWork.GroupChatRepository.GetAllAsync();
+                var data = _unitOfWork.ChatRepository.GetAllAsync();
                 return new ResultObject
                 {
                     Data = data,
@@ -64,7 +78,7 @@ namespace BusinessLogic_Layer.Service
             try
             {
                 var objectId = new ObjectId(id);
-                var data = await _unitOfWork.GroupChatRepository.GetByIdAsync(objectId);
+                var data = await _unitOfWork.ChatRepository.GetByIdAsync(objectId);
                 if (data == null)
                 {
                     return new ResultObject
@@ -92,28 +106,36 @@ namespace BusinessLogic_Layer.Service
             }
         }
 
-        public async Task<ResultObject> Update(GroupChat groupChat)
+        public async Task<ResultObject> Update(ApiMessage apiMessage)
         {
             try
             {
-                var objectId = new ObjectId(groupChat.Id);
-                var existingGroupChat = await _unitOfWork.GroupChatRepository.GetByIdAsync(objectId);
-                if (existingGroupChat == null)
+                var chat = await _unitOfWork.ChatRepository.GetByIdAsync(ObjectId.Parse(apiMessage.ChatId));
+                if (chat == null)
                 {
                     return new ResultObject
                     {
-                        Message = $"{_localizer["GroupChat"]} {_localizer["NotFound"]}",
-                        Success = false,
+                        Message = "Chat not found",
+                        Success = true,
                         StatusCode = EnumStatusCodesResult.NotFound
                     };
                 }
+                var newMessage = new Message
+                {
+                    Id = ObjectId.GenerateNewId().ToString(),
+                    Sender = apiMessage.Sender,
+                    Type = apiMessage.Type,
+                    Text = apiMessage.Text,
+                    File = apiMessage.File,
+                    CreatedDate = DateTime.UtcNow
+                };
 
-                _mapper.Map(groupChat, existingGroupChat);
-                _unitOfWork.GroupChatRepository.UpdateAsync(objectId, existingGroupChat);
-                await _unitOfWork.SaveChangesAsync();
-
+                // Thêm Message mới vào danh sách Messages của Chat
+                chat.Messages.Add(newMessage);
+                await _unitOfWork.ChatRepository.UpdateAsync(ObjectId.Parse(chat.Id), chat);
                 return new ResultObject
                 {
+                    Data = chat,
                     Success = true,
                     StatusCode = EnumStatusCodesResult.Success
                 };
@@ -134,7 +156,7 @@ namespace BusinessLogic_Layer.Service
             try
             {
                 var objectId = new ObjectId(id);
-                var existingGroupChat = await _unitOfWork.GroupChatRepository.GetByIdAsync(objectId);
+                var existingGroupChat = await _unitOfWork.ChatRepository.GetByIdAsync(objectId);
                 if (existingGroupChat == null)
                 {
                     return new ResultObject
@@ -145,8 +167,7 @@ namespace BusinessLogic_Layer.Service
                     };
                 }
 
-                _unitOfWork.GroupChatRepository.DeleteAsync(objectId);
-                await _unitOfWork.SaveChangesAsync();
+                _unitOfWork.ChatRepository.DeleteAsync(objectId, existingGroupChat);
 
                 return new ResultObject
                 {
@@ -164,5 +185,46 @@ namespace BusinessLogic_Layer.Service
                 };
             }
         }
+
+        public async Task<ResultObject> GetChatByMembers(string idUser1, string idUser2)
+        {
+            try
+            {
+                var allChats = await _unitOfWork.ChatRepository.GetAllAsync();
+
+                var chat = allChats.FirstOrDefault(c =>
+                    new HashSet<string>(c.Members.Select(m => m.Id)).SetEquals(new HashSet<string> { idUser1, idUser2 })
+                );
+
+
+                if (chat == null)
+                {
+                    return new ResultObject
+                    {
+                        Message = $"{_localizer["GroupChat"]} {_localizer["NotFound"]}",
+                        Success = false,
+                        StatusCode = EnumStatusCodesResult.NotFound
+                    };
+                }
+
+                return new ResultObject
+                {
+                    Data = chat,
+                    Success = true,
+                    StatusCode = EnumStatusCodesResult.Success
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ResultObject
+                {
+                    Message = ex.Message,
+                    Success = false,
+                    StatusCode = EnumStatusCodesResult.InternalServerError
+                };
+            }
+        }
+
+
     }
 }

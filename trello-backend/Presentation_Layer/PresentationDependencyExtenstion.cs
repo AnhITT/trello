@@ -34,7 +34,6 @@ namespace Presentation_Layer
 
             services.AddScoped<Generate>();
             services.AddScoped<CallApi>();
-            services.AddScoped<Auth>();
             services.AddScoped<DeleteChild>();
 
             services.AddLogging();
@@ -48,6 +47,8 @@ namespace Presentation_Layer
             var client = new ElasticClient(settings);
             
             services.AddSingleton<IElasticClient>(client);
+            services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
             services.AddSignalR();
         }
 
@@ -87,7 +88,6 @@ namespace Presentation_Layer
             });
             builder.Services.AddAuthorization();
             builder.Services.AddSingleton(tokenValidationParameter);
-            builder.Services.AddHttpContextAccessor();
 
             builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 

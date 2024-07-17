@@ -10,6 +10,8 @@ import AvatarGroup from '@mui/material/AvatarGroup'
 import { Button, Tooltip } from '@mui/material'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import { capitalizeFirstLetter } from '~/utils/formatters'
+import ChatIcon from '@mui/icons-material/Chat'
+import { NavLink as RouterLink } from 'react-router-dom'
 
 const MENU_STYLES = {
   color: 'white',
@@ -62,6 +64,14 @@ function BoardBar({ board }) {
         <Chip
           icon={<AddToDriveIcon />}
           label="Add To Google Drive"
+          onClick={() => {}}
+          sx={MENU_STYLES}
+        ></Chip>
+        <Chip
+          component={RouterLink}
+          to="/chat"
+          icon={<ChatIcon />}
+          label="Chat"
           onClick={() => {}}
           sx={MENU_STYLES}
         ></Chip>
