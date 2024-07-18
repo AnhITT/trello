@@ -3,6 +3,9 @@ using BusinessLogic_Layer.Service;
 using DataAccess_Layer.DTOs;
 using DataAccess_Layer.Interfaces;
 using DataAccess_Layer.UnitOfWorks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace Chat
 {
@@ -15,6 +18,7 @@ namespace Chat
             services.AddAutoMapper(typeof(MappingChatContainer));
             services.AddHttpClient();
             services.AddTransient<ChatService>();
+            services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
         }
 
@@ -26,8 +30,34 @@ namespace Chat
             builder.Services.AddLocalization();
             builder.Services.AddMemoryCache();
             builder.Services.AddOptions();
+            builder.Services.Configure<JwtConfig>(builder.Configuration.GetSection("JwtConfig"));
+            var key = Encoding.ASCII.GetBytes(builder.Configuration.GetSection("JwtConfig:Secret").Value);
+            var tokenValidationParameter = new TokenValidationParameters()
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidAudience = builder.Configuration["JwtConfig:ValidAudience"],
+                ValidIssuer = builder.Configuration["JwtConfig:ValidIssuer"],
+                RequireExpirationTime = false,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+            };
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            }).AddJwtBearer(jwt =>
+            {
+                jwt.SaveToken = true;
+                jwt.TokenValidationParameters = tokenValidationParameter;
+            });
+            builder.Services.AddAuthorization();
+            builder.Services.AddSingleton(tokenValidationParameter);
             builder.Services.AddHttpContextAccessor();
-
+            builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("CorsPolicy", builder =>
@@ -55,6 +85,8 @@ namespace Chat
             localizationOptions.ApplyCurrentCultureToResponseHeaders = true;
             app.MapHub<ChatHub>("/chatHub");
             app.UseCors("CorsPolicy");
+            app.UseAuthentication();
+            app.UseAuthorization();
             app.UseRequestLocalization(localizationOptions);
             app.Run();
         }

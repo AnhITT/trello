@@ -64,5 +64,14 @@ namespace Presentation_Layer.Controllers
 
             return Ok(response);
         }
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GetCurrentUser()
+        {
+            var response = await _authService.GetCurrentUser();
+            if (!response.Success)
+                return BadRequest(response);
+
+            return Ok(response);
+        }
     }
 }

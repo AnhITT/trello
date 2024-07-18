@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Grid from '@mui/material/Grid'
 import Paper from '@mui/material/Paper'
 import List from '@mui/material/List'
@@ -20,17 +20,20 @@ import AddReactionIcon from '@mui/icons-material/AddReaction'
 import SendIcon from '@mui/icons-material/Send'
 import { InputAdornment } from '@mui/material'
 import { GetAllUserAPI } from '~/apis/User'
-import { GetAllPropertiesFromBoard } from '~/apis/Chat'
+import { GetChatByMembers } from '~/apis/Chat'
 import Message from '~/components/Message'
 import { useAuth } from '~/context/AuthProvider'
+import * as signalR from '@microsoft/signalr'
 
 const Chat = () => {
   const [searchText, setSearchText] = useState('')
+  const [chat, setChat] = useState('')
   const [message, setMessage] = useState('')
   const [users, setUsers] = useState([])
   const [selectedUser, setSelectedUser] = useState(null)
   const [messages, setMessages] = useState([])
   const { user } = useAuth()
+  const connection = useRef(null)
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -49,17 +52,61 @@ const Chat = () => {
     fetchUsers()
   }, [])
 
+  useEffect(() => {
+    connection.current = new signalR.HubConnectionBuilder()
+      .withUrl('https://localhost:7181/chatHub')
+      .withAutomaticReconnect()
+      .build()
+
+    connection.current
+      .start()
+      .then(() => console.log('Connected to SignalR'))
+      .catch(err => console.error('SignalR Connection Error: ', err))
+
+    connection.current.on('ReceiveMessage', apiMessage => {
+      setMessages(prevMessages => [...prevMessages, apiMessage])
+    })
+
+    return () => {
+      connection.current.stop()
+    }
+  }, [])
+
   const handleUserClick = async userFocus => {
     setSelectedUser(userFocus)
     try {
-      const response = await GetAllPropertiesFromBoard(user.Id, userFocus.id)
+      const response = await GetChatByMembers(user.Id, userFocus.id)
       if (response.statusCode === 200) {
+        setChat(response.data.id)
         setMessages(response.data.messages)
       } else {
         setMessages('')
       }
     } catch (error) {
       setMessages('')
+    }
+  }
+
+  const handleSendMessage = async () => {
+    if (message.trim() === '' || !selectedUser) return
+
+    const apiMessage = {
+      ChatId: chat,
+      Sender: user.Id,
+      Type: 'text',
+      Text: message,
+      File: null
+    }
+
+    try {
+      await connection.current.invoke(
+        'SendMessage',
+        selectedUser.id,
+        apiMessage
+      )
+      setMessage('')
+    } catch (error) {
+      console.error('Error sending message: ', error)
     }
   }
 
@@ -157,7 +204,7 @@ const Chat = () => {
                   borderBottom: '1px solid #ddd',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between' // Để icon được căn phải
+                  justifyContent: 'space-between'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -272,6 +319,7 @@ const Chat = () => {
                   display: 'flex',
                   alignItems: 'center'
                 }}
+                onClick={handleSendMessage}
               >
                 <SendIcon sx={{ marginX: '15px', cursor: 'pointer' }} />
               </Box>

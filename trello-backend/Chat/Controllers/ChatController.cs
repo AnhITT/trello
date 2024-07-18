@@ -1,11 +1,13 @@
 ﻿using BusinessLogic_Layer.Entity;
 using BusinessLogic_Layer.Service;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Chat.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ChatController : ControllerBase
     {
         private readonly ChatService _chatService;

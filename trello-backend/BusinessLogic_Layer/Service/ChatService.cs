@@ -202,8 +202,8 @@ namespace BusinessLogic_Layer.Service
                     return new ResultObject
                     {
                         Message = $"{_localizer["GroupChat"]} {_localizer["NotFound"]}",
-                        Success = false,
-                        StatusCode = EnumStatusCodesResult.NotFound
+                        Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
                     };
                 }
 
@@ -224,7 +224,5 @@ namespace BusinessLogic_Layer.Service
                 };
             }
         }
-
-
     }
 }

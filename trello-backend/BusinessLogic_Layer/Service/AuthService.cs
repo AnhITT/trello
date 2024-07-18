@@ -2,6 +2,7 @@
 using BusinessLogic_Layer.Common;
 using BusinessLogic_Layer.Entity;
 using BusinessLogic_Layer.Enums;
+using DataAccess_Layer.Helpers;
 using DataAccess_Layer.Interfaces;
 using DataAccess_Layer.Models;
 using DataAccess_Layer.Utilities;
@@ -20,10 +21,11 @@ namespace BusinessLogic_Layer.Service
         private readonly Generate _generate;
         private readonly IStringLocalizer<SharedResource> _localizer;
         private readonly ElasticsearchService _elasticsearchService;
-        private readonly IHttpContextAccessor _contextAccessor;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public AuthService(IUnitOfWork unitOfWork, IMapper mapper, MailService mailService,
-            Generate generate, IStringLocalizer<SharedResource> localizer, ElasticsearchService elasticsearchService)
+            Generate generate, IStringLocalizer<SharedResource> localizer, ElasticsearchService elasticsearchService,
+            IHttpContextAccessor httpContextAccessor)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
@@ -31,7 +33,7 @@ namespace BusinessLogic_Layer.Service
             _generate = generate;
             _localizer = localizer;
             _elasticsearchService = elasticsearchService;
-            _contextAccessor = new HttpContextAccessor();
+            _httpContextAccessor = httpContextAccessor;
         }
         public async Task<ResultObject> Login(LoginRequest loginRequest)
         {
@@ -395,38 +397,31 @@ namespace BusinessLogic_Layer.Service
                 _unitOfWork.Dispose();
             }
         }
-        
-        #region Get UserCurrent
-        public string GetAccessToken()
+        public async Task<ResultObject> GetCurrentUser()
         {
-            var context = _contextAccessor.HttpContext;
-
-            if (context != null && context.Request.Headers.ContainsKey("Authorization"))
+            try
             {
-                var authHeader = context.Request.Headers["Authorization"].ToString();
-                if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                var userId = _httpContextAccessor.HttpContext?.GetCurrentUserId();
+                return new ResultObject
                 {
-                    return authHeader.Substring("Bearer ".Length).Trim();
-                }
+                    Data = userId,
+                    Success = true,
+                    StatusCode = EnumStatusCodesResult.Success
+                };
             }
-
-            return null;
-        }
-        public string GetUserIdCurrent()
-        {
-            var jwt = GetAccessToken();
-            if (jwt == null)
+            catch (Exception ex)
             {
-                return null;
+                return new ResultObject
+                {
+                    Message = ex.Message,
+                    Success = false,
+                    StatusCode = EnumStatusCodesResult.InternalServerError
+                };
             }
-
-            var handler = new JwtSecurityTokenHandler();
-            var token = handler.ReadJwtToken(jwt);
-            var userIdClaim = token.Claims.FirstOrDefault(claim => claim.Type == "Id");
-
-            return userIdClaim?.Value;
+            finally
+            {
+                _unitOfWork.Dispose();
+            }
         }
-        #endregion
-
     }
 }
