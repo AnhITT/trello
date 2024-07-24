@@ -14,6 +14,8 @@ using System.Text;
 using Elasticsearch.Net;
 using Nest;
 using BusinessLogic_LayerDataAccess_Layer.Common;
+using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 
 namespace Presentation_Layer
 {
@@ -49,7 +51,6 @@ namespace Presentation_Layer
             services.AddSingleton<IElasticClient>(client);
             services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
-            services.AddSignalR();
         }
 
         public static void ConfigureServices(WebApplicationBuilder builder)
@@ -85,12 +86,23 @@ namespace Presentation_Layer
             {
                 jwt.SaveToken = true;
                 jwt.TokenValidationParameters = tokenValidationParameter;
+                jwt.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/boardHub"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
             });
             builder.Services.AddAuthorization();
             builder.Services.AddSingleton(tokenValidationParameter);
-
             builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
-
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("CorsPolicy", builder =>
@@ -101,7 +113,6 @@ namespace Presentation_Layer
                            .AllowCredentials();
                 });
             });
-
             builder.Services.AddSignalR();
         }
 
@@ -118,6 +129,7 @@ namespace Presentation_Layer
                 .AddSupportedUICultures(supportedCultures);
 
             localizationOptions.ApplyCurrentCultureToResponseHeaders = true;
+            app.MapHub<BoardHub>("/boardHub");
             app.UseCors("CorsPolicy");
             app.UseRequestLocalization(localizationOptions);
             app.Run();

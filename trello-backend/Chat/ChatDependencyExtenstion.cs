@@ -19,7 +19,6 @@ namespace Chat
             services.AddHttpClient();
             services.AddTransient<ChatService>();
             services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
-
         }
 
         public static void ConfigureServices(WebApplicationBuilder builder)
@@ -53,10 +52,22 @@ namespace Chat
             {
                 jwt.SaveToken = true;
                 jwt.TokenValidationParameters = tokenValidationParameter;
+                jwt.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
             });
             builder.Services.AddAuthorization();
             builder.Services.AddSingleton(tokenValidationParameter);
-            builder.Services.AddHttpContextAccessor();
             builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
             builder.Services.AddCors(options =>
             {
@@ -77,6 +88,8 @@ namespace Chat
             app.UseRouting();
             app.UseHttpsRedirection();
             app.MapControllers();
+            app.UseAuthentication();
+            app.UseAuthorization();
             var supportedCultures = new[] { "en", "vi" };
             var localizationOptions = new RequestLocalizationOptions().SetDefaultCulture("en")
                 .AddSupportedCultures(supportedCultures)
@@ -85,8 +98,6 @@ namespace Chat
             localizationOptions.ApplyCurrentCultureToResponseHeaders = true;
             app.MapHub<ChatHub>("/chatHub");
             app.UseCors("CorsPolicy");
-            app.UseAuthentication();
-            app.UseAuthorization();
             app.UseRequestLocalization(localizationOptions);
             app.Run();
         }

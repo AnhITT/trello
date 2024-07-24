@@ -27,7 +27,7 @@ namespace Chat.Controllers
             return Ok(response);
         }
 
-        [HttpGet("[action]/{id}")]
+        [HttpGet("[action]")]
         public async Task<IActionResult> GetById(string id)
         {
             var response = await _chatService.GetById(id);
@@ -66,10 +66,10 @@ namespace Chat.Controllers
 
             return Ok(response);
         }
-        [HttpGet("GetChatByMembers")]
-        public async Task<IActionResult> GetChatByMembers(string idUser1, string idUser2)
+        [HttpPost("GetChatByMembers")]
+        public async Task<IActionResult> GetChatByMembers([FromBody] List<string> userIds)
         {
-            var result = await _chatService.GetChatByMembers(idUser1, idUser2);
+            var result = await _chatService.GetChatByMembers(userIds);
 
             if (!result.Success)
                 return BadRequest(result);

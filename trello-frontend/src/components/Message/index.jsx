@@ -3,7 +3,14 @@ import Paper from '@mui/material/Paper'
 import Avatar from '@mui/material/Avatar'
 import Typography from '@mui/material/Typography'
 
-const Message = ({ userId, sender, text, senderAvatar }) => {
+const Message = ({
+  userId,
+  sender,
+  text,
+  senderAvatar,
+  isFirstInGroup,
+  lastName
+}) => {
   const isSender = userId === sender
 
   return (
@@ -14,38 +21,73 @@ const Message = ({ userId, sender, text, senderAvatar }) => {
         marginBottom: '5px'
       }}
     >
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: isSender ? 'row-reverse' : 'row',
-          alignItems: 'center',
-          width: '100%'
-        }}
-      >
-        {!isSender && (
-          <Avatar
-            src={
-              senderAvatar ||
-              'https://cdn.iconscout.com/icon/free/png-256/free-avatar-370-456322.png'
-            }
-            alt="Avatar"
-            sx={{ width: 32, height: 32, marginRight: '8px' }}
-          />
-        )}
-        <Paper
+      {isSender ? (
+        <Box
           sx={{
-            padding: '10px',
-            maxWidth: '100%',
-            backgroundColor: '#1976d2',
-            color: 'white',
-            borderRadius: '20px'
+            display: 'flex',
+            flexDirection: 'row-reverse',
+            alignItems: 'center',
+            width: '100%'
           }}
         >
-          <Typography variant="body1" sx={{ wordWrap: 'break-word' }}>
-            {text}
-          </Typography>
-        </Paper>
-      </Box>
+          <Paper
+            sx={{
+              padding: '10px',
+              maxWidth: '100%',
+              backgroundColor: '#1976d2',
+              color: 'white',
+              borderRadius: '25% 10%'
+            }}
+          >
+            <Typography variant="body1" sx={{ wordWrap: 'break-word' }}>
+              {text}
+            </Typography>
+          </Paper>
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            width: '100%'
+          }}
+        >
+          {isFirstInGroup && (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                marginRight: '8px'
+              }}
+            >
+              <Avatar
+                src={
+                  senderAvatar ||
+                  'https://cdn.iconscout.com/icon/free/png-256/free-avatar-370-456322.png'
+                }
+                alt="Avatar"
+                sx={{ width: 32, height: 32 }}
+              />
+            </Box>
+          )}
+          <Paper
+            sx={{
+              padding: '10px',
+              maxWidth: '100%',
+              backgroundColor: '#1976d2',
+              color: 'white',
+              borderRadius: '25% 10%',
+              marginLeft: isFirstInGroup ? '0px' : '40px'
+            }}
+          >
+            <Typography variant="body1" sx={{ wordWrap: 'break-word' }}>
+              {text}
+            </Typography>
+          </Paper>
+        </Box>
+      )}
     </Box>
   )
 }

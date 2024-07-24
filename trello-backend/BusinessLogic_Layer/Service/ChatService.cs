@@ -105,7 +105,6 @@ namespace BusinessLogic_Layer.Service
                 };
             }
         }
-
         public async Task<ResultObject> Update(ApiMessage apiMessage)
         {
             try
@@ -186,16 +185,14 @@ namespace BusinessLogic_Layer.Service
             }
         }
 
-        public async Task<ResultObject> GetChatByMembers(string idUser1, string idUser2)
+        public async Task<ResultObject> GetChatByMembers(List<string> userIds)
         {
             try
             {
                 var allChats = await _unitOfWork.ChatRepository.GetAllAsync();
 
-                var chat = allChats.FirstOrDefault(c =>
-                    new HashSet<string>(c.Members.Select(m => m.Id)).SetEquals(new HashSet<string> { idUser1, idUser2 })
-                );
-
+                var chat = allChats.FirstOrDefault(c => c.Members.Count == userIds.Count &&
+                                                   !c.Members.Except(userIds).Any());
 
                 if (chat == null)
                 {

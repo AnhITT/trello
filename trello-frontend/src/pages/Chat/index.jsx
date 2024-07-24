@@ -24,6 +24,7 @@ import { GetChatByMembers } from '~/apis/Chat'
 import Message from '~/components/Message'
 import { useAuth } from '~/context/AuthProvider'
 import * as signalR from '@microsoft/signalr'
+import Cookies from 'js-cookie'
 
 const Chat = () => {
   const [searchText, setSearchText] = useState('')
@@ -34,6 +35,7 @@ const Chat = () => {
   const [messages, setMessages] = useState([])
   const { user } = useAuth()
   const connection = useRef(null)
+  const messagesContainerRef = useRef(null)
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -53,8 +55,11 @@ const Chat = () => {
   }, [])
 
   useEffect(() => {
+    const token = Cookies.get('token')
     connection.current = new signalR.HubConnectionBuilder()
-      .withUrl('https://localhost:7181/chatHub')
+      .withUrl('https://localhost:7181/chatHub', {
+        accessTokenFactory: () => token
+      })
       .withAutomaticReconnect()
       .build()
 
@@ -72,18 +77,27 @@ const Chat = () => {
     }
   }, [])
 
+  useEffect(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight
+    }
+  }, [messages])
+
   const handleUserClick = async userFocus => {
     setSelectedUser(userFocus)
     try {
-      const response = await GetChatByMembers(user.Id, userFocus.id)
+      const userIds = [user.Id, userFocus.id]
+      const response = await GetChatByMembers(userIds)
       if (response.statusCode === 200) {
         setChat(response.data.id)
         setMessages(response.data.messages)
+        console.log('value: ', response.data)
       } else {
-        setMessages('')
+        setMessages([])
       }
     } catch (error) {
-      setMessages('')
+      setMessages([])
     }
   }
 
@@ -99,15 +113,20 @@ const Chat = () => {
     }
 
     try {
-      await connection.current.invoke(
-        'SendMessage',
-        selectedUser.id,
-        apiMessage
-      )
+      await connection.current.invoke('SendMessage', apiMessage)
       setMessage('')
     } catch (error) {
       console.error('Error sending message: ', error)
     }
+  }
+
+  const getMessageProps = index => {
+    const isFirstInGroup =
+      index === 0 || messages[index].sender !== messages[index - 1].sender
+    const isLastInGroup =
+      index === messages.length - 1 ||
+      messages[index].sender !== messages[index + 1].sender
+    return { isFirstInGroup, isLastInGroup }
   }
 
   return (
@@ -193,8 +212,8 @@ const Chat = () => {
             elevation={3}
             style={{
               height: '85.5vh',
-              overflowY: 'auto',
-              position: 'relative'
+              display: 'flex',
+              flexDirection: 'column'
             }}
           >
             {selectedUser && (
@@ -235,16 +254,34 @@ const Chat = () => {
                 </div>
               </div>
             )}
-            <List sx={{ padding: '10px', flexGrow: 1, overflowY: 'auto' }}>
-              {messages?.length > 0 ? (
-                messages.map((msg, index) => (
-                  <Message
-                    key={index}
-                    userId={user.Id}
-                    sender={msg.sender}
-                    text={msg.text}
-                  />
-                ))
+            <div
+              style={{
+                flexGrow: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '10px',
+                overflowY: 'auto',
+                overflowX: 'hidden'
+              }}
+              ref={messagesContainerRef}
+            >
+              {messages.length > 0 ? (
+                <>
+                  {messages.map((msg, index) => {
+                    const { isFirstInGroup } = getMessageProps(index)
+                    return (
+                      <Message
+                        key={index}
+                        userId={user.Id}
+                        sender={msg.sender}
+                        text={msg.text}
+                        senderAvatar={msg.senderAvatar}
+                        isFirstInGroup={isFirstInGroup}
+                        lastName={selectedUser.lastName}
+                      />
+                    )
+                  })}
+                </>
               ) : (
                 <ListItem
                   disablePadding
@@ -261,23 +298,24 @@ const Chat = () => {
                       padding: '10px',
                       borderRadius: '10px',
                       border: '1px solid #ddd',
-                      background: '#f5f5f5',
+                      backgroundColor: '#f5f5f5',
                       cursor: 'pointer'
                     }}
                   >
-                    Bắt đầu
+                    Start a conversation with {selectedUser?.lastName}
                   </button>
                 </ListItem>
               )}
-            </List>
+            </div>
             <div
               style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                width: '100%',
                 display: 'flex',
-                padding: '10px'
+                padding: '10px',
+                borderTop: '1px solid #ddd',
+                backgroundColor: 'white',
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 1
               }}
             >
               <Box
@@ -312,6 +350,11 @@ const Chat = () => {
                       }}
                     />
                   )
+                }}
+                onKeyPress={e => {
+                  if (e.key === 'Enter') {
+                    handleSendMessage()
+                  }
                 }}
               />
               <Box

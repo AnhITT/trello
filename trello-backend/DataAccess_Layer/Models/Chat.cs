@@ -19,7 +19,7 @@ namespace DataAccess_Layer.Models
         public bool IsGroup { get; set; }
 
         [BsonElement("Members")]
-        public List<UserDTO> Members { get; set; }
+        public List<string> Members { get; set; }
 
         [BsonElement("Messages")]
         public List<Message> Messages { get; set; }
