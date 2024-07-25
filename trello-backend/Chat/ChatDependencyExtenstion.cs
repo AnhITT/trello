@@ -6,6 +6,7 @@ using DataAccess_Layer.UnitOfWorks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using BusinessLogic_LayerDataAccess_Layer.Common;
 
 namespace Chat
 {
@@ -16,6 +17,7 @@ namespace Chat
             services.AddTransient<IUnitOfWorkChat, UnitOfWorkChat>();
             services.AddLogging();
             services.AddAutoMapper(typeof(MappingChatContainer));
+            services.AddScoped<CallApi>();
             services.AddHttpClient();
             services.AddTransient<ChatService>();
             services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();

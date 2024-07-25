@@ -1,7 +1,6 @@
 ﻿using BusinessLogic_Layer.Common;
 using BusinessLogic_Layer.Mapping;
 using BusinessLogic_Layer.Service;
-using DataAccess_Layer.Common;
 using DataAccess_Layer.Data;
 using DataAccess_Layer.DTOs;
 using DataAccess_Layer.Interfaces;
@@ -14,8 +13,6 @@ using System.Text;
 using Elasticsearch.Net;
 using Nest;
 using BusinessLogic_LayerDataAccess_Layer.Common;
-using Microsoft.Extensions.Options;
-using MongoDB.Driver;
 
 namespace Presentation_Layer
 {

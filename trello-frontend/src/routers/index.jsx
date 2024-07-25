@@ -21,8 +21,7 @@ const PublicRoutes = [
     children: [
       { path: '/', element: <Login /> },
       { path: '/register', element: <Register /> },
-      { path: '/verify/register', element: <VerifyEmail /> },
-      { path: '/chat', element: <Chat /> }
+      { path: '/verify/register', element: <VerifyEmail /> }
     ]
   },
   {
@@ -37,7 +36,10 @@ const PublicRoutes = [
 const PrivateRoutes = [
   {
     element: <BoardLayout />,
-    children: [{ path: '/board', element: <Board /> }]
+    children: [
+      { path: '/board', element: <Board /> },
+      { path: '/chat', element: <Chat /> }
+    ]
   }
 ]
 

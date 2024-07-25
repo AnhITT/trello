@@ -1,5 +1,4 @@
 ﻿using AutoMapper;
-using DataAccess_Layer.Common;
 using BusinessLogic_Layer.Entity;
 using BusinessLogic_Layer.Enums;
 using DataAccess_Layer.Interfaces;
@@ -7,8 +6,9 @@ using DataAccess_Layer.Models;
 using Microsoft.Extensions.Localization;
 using MongoDB.Bson;
 using Microsoft.AspNetCore.Http;
-using System.IdentityModel.Tokens.Jwt;
-using Nest;
+using MongoDB.Driver;
+using DataAccess_Layer.Helpers;
+using BusinessLogic_LayerDataAccess_Layer.Common;
 
 namespace BusinessLogic_Layer.Service
 {
@@ -16,14 +16,17 @@ namespace BusinessLogic_Layer.Service
     {
         private readonly IUnitOfWorkChat _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly IHttpContextAccessor _contextAccessor;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IStringLocalizer<SharedResource> _localizer;
-        public ChatService(IUnitOfWorkChat unitOfWork, IMapper mapper, IStringLocalizer<SharedResource> localizer)
+        private readonly CallApi _callApi;
+        public ChatService(IUnitOfWorkChat unitOfWork, IMapper mapper, IStringLocalizer<SharedResource> localizer,
+            IHttpContextAccessor httpContextAccessor, CallApi callApi)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
-            _contextAccessor = new HttpContextAccessor();
+            _httpContextAccessor = httpContextAccessor;
             _localizer = localizer;
+            _callApi = callApi;
         }
 
         public async Task<ResultObject> CreateChatAsync(ApiChat apiChat)
@@ -221,5 +224,76 @@ namespace BusinessLogic_Layer.Service
                 };
             }
         }
+        public async Task<ResultObject> GetChatByMe()
+        {
+            try
+            {
+                var userId = _httpContextAccessor.HttpContext?.GetCurrentUserId();
+
+                var filter = Builders<Chat>.Filter.AnyEq(chat => chat.Members, userId.ToString());
+                var chats = await _unitOfWork.ChatRepository.Find(filter);
+
+                var sortedChats = chats.OrderByDescending(chat => chat.Messages.Max(msg => msg.CreatedDate)).ToList();
+
+                var userIds = sortedChats
+                    .SelectMany(chat => chat.Members)
+                    .Distinct()
+                    .Where(id => id != userId.ToString())
+                    .ToList();
+
+                var userResult = await _callApi.GetUsersByIds(userIds);
+
+                var usersDict = userResult.ToDictionary(user => user.Id, user => user);
+
+                var chatWithUserDetails = sortedChats.Select(chat => new ChatWithUserDetails
+                {
+                    Id = chat.Id,
+                    NameGroup = chat.NameGroup,
+                    AvatarGroup = chat.AvatarGroup,
+                    IsGroup = chat.IsGroup,
+                    Members = chat.Members.Select(memberId =>
+                    {
+                        if (usersDict.TryGetValue(Guid.Parse(memberId), out var user))
+                        {
+                            return new MemberWithUserDetails
+                            {
+                                Id = user.Id.ToString(),
+                                FirstName = user.FirstName,
+                                LastName = user.LastName,
+                                Email = user.Email,
+                                PhoneNumber = user.PhoneNumber,
+                                VerifyEmail = user.VerifyEmail
+                            };
+                        }
+                        return new MemberWithUserDetails { Id = memberId }; 
+                    }).ToList(),
+                    Messages = chat.Messages,
+                    CreatedBy = chat.CreatedBy,
+                    CreatedDate = chat.CreatedDate,
+                    ModifiedBy = chat.ModifiedBy,
+                    ModifiedDate = chat.ModifiedDate,
+                    DeletedBy = chat.DeletedBy,
+                    DeletedDate = chat.DeletedDate,
+                    IsDeleted = chat.IsDeleted
+                }).ToList();
+
+                return new ResultObject
+                {
+                    Data = chatWithUserDetails,
+                    Success = true,
+                    StatusCode = EnumStatusCodesResult.Success
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ResultObject
+                {
+                    Message = ex.Message,
+                    Success = false,
+                    StatusCode = EnumStatusCodesResult.InternalServerError
+                };
+            }
+        }
+
     }
 }

@@ -53,5 +53,15 @@ namespace Presentation_Layer.Controllers
 
             return Ok(respone);
         }
+
+        [HttpPost("[action]")]
+        public async Task<IActionResult> GetUsersByIds([FromBody] List<string> userIds)
+        {
+            var respone = await _userService.GetUsersByIds(userIds);
+            if (respone.Success == false)
+                BadRequest(respone);
+
+            return Ok(respone);
+        }
     }
 }

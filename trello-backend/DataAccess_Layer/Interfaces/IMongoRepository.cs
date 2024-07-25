@@ -1,4 +1,5 @@
 ﻿using MongoDB.Bson;
+using MongoDB.Driver;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,5 +15,6 @@ namespace DataAccess_Layer.Interfaces
         Task AddAsync(T entity);
         Task UpdateAsync(ObjectId id, T entity);
         Task DeleteAsync(ObjectId id, T entity);
+        Task<IEnumerable<T>> Find(FilterDefinition<T> filter);
     }
 }

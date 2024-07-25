@@ -66,10 +66,22 @@ namespace Chat.Controllers
 
             return Ok(response);
         }
+
         [HttpPost("GetChatByMembers")]
         public async Task<IActionResult> GetChatByMembers([FromBody] List<string> userIds)
         {
             var result = await _chatService.GetChatByMembers(userIds);
+
+            if (!result.Success)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
+
+        [HttpGet("GetChatByMe")]
+        public async Task<IActionResult> GetChatByMe()
+        {
+            var result = await _chatService.GetChatByMe();
 
             if (!result.Success)
                 return BadRequest(result);

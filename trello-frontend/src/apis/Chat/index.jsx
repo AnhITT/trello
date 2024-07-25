@@ -3,6 +3,7 @@ import { instanceChatAPI } from '../Axios'
 const END_POINT = {
   Chat: 'chat',
   GetChatByMembers: 'GetChatByMembers',
+  GetChatByMe: 'GetChatByMe',
   Update: 'update'
 }
 
@@ -18,6 +19,10 @@ const GetChatByMembers = userIds => {
   )
 }
 
+const GetChatByMe = () => {
+  return instanceChatAPI.get(`${END_POINT.Chat}/${END_POINT.GetChatByMe}`)
+}
+
 const SendMessage = request => {
   return instanceChatAPI.patch(
     `${END_POINT.Chat}/${END_POINT.Update}`,
@@ -30,4 +35,4 @@ const SendMessage = request => {
   )
 }
 
-export { GetChatByMembers, SendMessage }
+export { GetChatByMembers, SendMessage, GetChatByMe }

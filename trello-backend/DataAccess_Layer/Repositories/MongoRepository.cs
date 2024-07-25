@@ -29,7 +29,10 @@ namespace DataAccess_Layer.Repositories
         {
             return await _collection.Find(_ => true).ToListAsync();
         }
-
+        public async Task<IEnumerable<T>> Find(FilterDefinition<T> filter)
+        {
+            return await _collection.Find(filter).ToListAsync();
+        }
         public async Task AddAsync(T entity)
         {
             var userId = GetUserIdCurrent();

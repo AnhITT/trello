@@ -46,24 +46,20 @@ public class ChatHub : Hub
     }
     public async Task SendMessage(ApiMessage apiMessage)
     {
-        // Cập nhật tin nhắn vào cơ sở dữ liệu
         var updateResult = await _chatService.Update(apiMessage);
 
-        // Lấy thông tin chat
         var objectId = new ObjectId(apiMessage.ChatId);
         var data = await _unitOfWork.ChatRepository.GetByIdAsync(objectId);
 
         if (data != null)
         {
             {
-                // Tạo danh sách các kết nối hiện tại cho các thành viên của chat
                 var connectedUserIds = data.Members
                     .Where(memberId => userConnections.ContainsKey(memberId))
                     .ToList();
 
                 if (connectedUserIds?.Count > 0)
                 {
-                    // Gửi tin nhắn đến tất cả các kết nối của các thành viên
                     foreach (var userId in connectedUserIds)
                     {
                         var connectionId = userConnections[userId];

@@ -225,5 +225,38 @@ namespace BusinessLogic_Layer.Service
                 _unitOfWork.Dispose();
             }
         }
+        public async Task<ResultObject> GetUsersByIds(List<string> userIds)
+        {
+            try
+            {
+                var users = _unitOfWork.UserRepository.GetAll()
+                    .Where(u => userIds.Contains(u.Id.ToString()))
+                    .Select(u => new
+                    {
+                        u.Id,
+                        u.FirstName,
+                        u.LastName,
+                        u.Email,
+                        u.PhoneNumber
+                    }).ToList();
+
+                return new ResultObject
+                {
+                    Data = users,
+                    Success = true,
+                    StatusCode = EnumStatusCodesResult.Success
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ResultObject
+                {
+                    Message = ex.Message,
+                    Success = false,
+                    StatusCode = EnumStatusCodesResult.InternalServerError
+                };
+            }
+        }
+
     }
 }

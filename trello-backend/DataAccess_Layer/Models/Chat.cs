@@ -12,8 +12,8 @@ namespace DataAccess_Layer.Models
 
         [BsonElement("NameGroup")]
         public string? NameGroup { get; set; }
-        [BsonElement("AvartaGroup")]
-        public string? AvartaGroup { get; set; }
+        [BsonElement("AvatarGroup")]
+        public string? AvatarGroup { get; set; }
 
         [BsonElement("IsGroup")]
         public bool IsGroup { get; set; }

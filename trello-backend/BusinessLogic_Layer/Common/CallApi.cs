@@ -19,7 +19,47 @@ namespace BusinessLogic_LayerDataAccess_Layer.Common
             _httpClient = httpClient;
             _configuration = configuration;
         }
-       
+        public async Task<List<ApiUser>> GetUsersByIds(List<string> userIds)
+        {
+            try
+            {
+                var token = GetAccessToken();
+
+                if (string.IsNullOrEmpty(token))
+                    return null;
+
+                string UrlApi = _configuration["UrlApi"];
+                string url = $"{UrlApi}user/GetUsersByIds";
+
+                var request = new HttpRequestMessage(HttpMethod.Post, url)
+                {
+                    Headers =
+                    {
+                        Authorization = new AuthenticationHeaderValue("Bearer", token)
+                    },
+                    Content = new StringContent(JsonConvert.SerializeObject(userIds), System.Text.Encoding.UTF8, "application/json")
+                };
+
+                var response = await _httpClient.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var resultString = await response.Content.ReadAsStringAsync();
+                    var result = JsonConvert.DeserializeObject<ResultObject>(resultString);
+
+                    if (result.Success)
+                    {
+                        return JsonConvert.DeserializeObject<List<ApiUser>>(result.Data.ToString());
+                    }
+                }
+
+                return new List<ApiUser>();
+            }
+            catch (HttpRequestException e)
+            {
+                return new List<ApiUser>();
+            }
+        }
         public async Task<bool> IsNotFindTask(Guid idTask)
         {
             try
@@ -79,7 +119,6 @@ namespace BusinessLogic_LayerDataAccess_Layer.Common
                 return new List<AttachmentFile>();
             }
         }
-
         public string GetAccessToken()
         {
             var context = _httpContextAccessor.HttpContext;
