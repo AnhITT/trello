@@ -25,10 +25,10 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                var result = _unitOfWorkUpload.AttachmentFileRepository.GetAll();
+                var files = _unitOfWorkUpload.AttachmentFileRepository.GetAll();
                 return new ResultObject
                 {
-                    Data = result,
+                    Data = files,
                     Success = true,
                     StatusCode = EnumStatusCodesResult.Success
                 };
@@ -47,15 +47,14 @@ namespace BusinessLogic_Layer.Service
                 _unitOfWorkUpload.Dispose();
             }
         }
-
         public async Task<ResultObject> GetFileToTask(Guid idTask)
         {
             try
             {
-                var result = _unitOfWorkUpload.AttachmentFileRepository.Find(n => n.TaskId == idTask).ToList();
+                var files = _unitOfWorkUpload.AttachmentFileRepository.Find(n => n.TaskId == idTask).ToList();
                 return new ResultObject
                 {
-                    Data = result,
+                    Data = files,
                     Success = true,
                     StatusCode = EnumStatusCodesResult.Success
                 };
@@ -168,13 +167,13 @@ namespace BusinessLogic_Layer.Service
             try
             {
                 //Check File exists
-                var checkFile = _unitOfWorkUpload.AttachmentFileRepository.FirstOrDefault(x => x.Id == Id);
-                if (checkFile == null)
+                var file = _unitOfWorkUpload.AttachmentFileRepository.FirstOrDefault(x => x.Id == Id);
+                if (file == null)
                     return null;
 
                 var filePath = Path.Combine(
                    Directory.GetCurrentDirectory(), "FileUpload",
-                   checkFile.FileNameToken);
+                   file.FileNameToken);
                 if (!System.IO.File.Exists(filePath))
                 {
                     return null;
@@ -183,7 +182,7 @@ namespace BusinessLogic_Layer.Service
                 var fileDownload = new DownloadDTO()
                 {
                     FileBytes = await File.ReadAllBytesAsync(filePath),
-                    FileName = checkFile.FileName
+                    FileName = file.FileName
                 };
                 return fileDownload;
             }
@@ -201,8 +200,8 @@ namespace BusinessLogic_Layer.Service
             try
             {
                 #region Check File exists
-                var checkFile = _unitOfWorkUpload.AttachmentFileRepository.FirstOrDefault(x => x.Id == id);
-                if (checkFile == null)
+                var file = _unitOfWorkUpload.AttachmentFileRepository.FirstOrDefault(x => x.Id == id);
+                if (file == null)
                     return new ResultObject
                     {
                         Message = _localizer[SharedResourceKeys.NotFound],
@@ -213,13 +212,13 @@ namespace BusinessLogic_Layer.Service
 
                 var filePath = Path.Combine(
                    Directory.GetCurrentDirectory(), "FileUpload",
-                   checkFile.FileNameToken);
+                   file.FileNameToken);
                 if (System.IO.File.Exists(filePath))
                 {
                     System.IO.File.Delete(filePath);
                 }
 
-                _unitOfWorkUpload.AttachmentFileRepository.Remove(checkFile);
+                _unitOfWorkUpload.AttachmentFileRepository.Remove(file);
                 _unitOfWorkUpload.SaveChanges();
 
                 return new ResultObject

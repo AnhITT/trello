@@ -39,8 +39,8 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                var checkUser = _unitOfWork.UserRepository.FirstOrDefault(u => u.Email == loginRequest.Username);
-                if (checkUser == null)
+                var user = _unitOfWork.UserRepository.FirstOrDefault(u => u.Email == loginRequest.Username);
+                if (user == null)
                     return new ResultObject
                     {
                         Message = $"{_localizer[SharedResourceKeys.Account]} {_localizer[SharedResourceKeys.NotFound]}",
@@ -49,7 +49,7 @@ namespace BusinessLogic_Layer.Service
                     };
 
                 // Check verify email
-                if (!checkUser.VerifyEmail)
+                if (!user.VerifyEmail)
                     return new ResultObject
                     {
                         Message = _localizer[SharedResourceKeys.EmailVerify],
@@ -59,11 +59,11 @@ namespace BusinessLogic_Layer.Service
 
                 // Check password
                 var passwordHasher = new PasswordHasher<User>();
-                var result = passwordHasher.VerifyHashedPassword(checkUser, checkUser.Password, loginRequest.Password);
+                var result = passwordHasher.VerifyHashedPassword(user, user.Password, loginRequest.Password);
 
                 if (result == PasswordVerificationResult.Success)
                 {
-                    var token = await _generate.GenerateJwtToken(checkUser);
+                    var token = await _generate.GenerateJwtToken(user);
                     return new ResultObject
                     {
                         Data = token,
@@ -97,245 +97,310 @@ namespace BusinessLogic_Layer.Service
         }
         public async Task<ResultObject> Register(ApiUser apiUser)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                #region Check email exists
-                var checkEmail = _unitOfWork.UserRepository.FirstOrDefault(u => u.Email == apiUser.Email);
-                if (checkEmail != null)
-                    return new ResultObject
-                    {
-                        Message = _localizer[SharedResourceKeys.EmailAlready],
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.Unauthorized
-                    };
-                #endregion
-
-                var mapApiUser = _mapper.Map<ApiUser, User>(apiUser);
-                mapApiUser.Id = Guid.NewGuid();
-                mapApiUser.VerifyEmail = false;
-
-                // Create Email Verification Token
-                var newEmailVerify = new EmailVerificationToken()
+                try
                 {
-                    UserId = mapApiUser.Id,
-                    TokenEmail = _generate.CreateRandomToken(),
-                };
-                #region Add data to Database
-                _unitOfWork.UserRepository.Add(mapApiUser);
-                _unitOfWork.EmailVerificationTokenRepository.Add(newEmailVerify);
-                var result = _unitOfWork.SaveChangesBool();
-                if (!result)
+                    #region Check email exists
+                    var findUserExists = _unitOfWork.UserRepository.FirstOrDefault(u => u.Email == apiUser.Email);
+                    if (findUserExists != null)
+                        return new ResultObject
+                        {
+                            Message = _localizer[SharedResourceKeys.EmailAlready],
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.Unauthorized
+                        };
+                    #endregion
+
+                    var user = _mapper.Map<ApiUser, User>(apiUser);
+                    user.Id = Guid.NewGuid();
+                    user.VerifyEmail = false;
+
+                    // Create Email Verification Token
+                    var newEmailVerify = new EmailVerificationToken()
+                    {
+                        UserId = user.Id,
+                        TokenEmail = _generate.CreateRandomToken(),
+                    };
+
+                    #region Add data to Database
+                    _unitOfWork.UserRepository.Add(user);
+                    _unitOfWork.EmailVerificationTokenRepository.Add(newEmailVerify);
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        transaction.Rollback(); // Rollback if saving data fails
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    // Send email verify to User
+                    var emailSent = await _mailService.SendEmailVerify(user, newEmailVerify);
+                    if (emailSent != true)
+                    {
+                        transaction.Rollback(); // Rollback if sending email fails
+                        return new ResultObject
+                        {
+                            Message = _localizer[SharedResourceKeys.EmailSendFailde],
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    transaction.Commit(); // Commit if both operations succeed
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                        Data = emailSent,
                         Success = true,
+                        StatusCode = EnumStatusCodesResult.Create
+                    };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    return new ResultObject
+                    {
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
-                #endregion
-
-                // Send email verify to User
-                var emailSent = await _mailService.SendEmailVerify(mapApiUser, newEmailVerify);
-                if (emailSent != true)
-                    return new ResultObject
-                    {
-                        Message = _localizer[SharedResourceKeys.EmailSendFailde],
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.InternalServerError
-                    };
-
-                return new ResultObject
+                }
+                finally
                 {
-                    Data = emailSent,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Create
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
+                    _unitOfWork.Dispose();
+                }
             }
         }
         public async Task<ResultObject> VerifyEmail(string tokenEncode)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                // Decode token and check token
-                var checkTokenEmail = _generate.DecodeFromBase64(tokenEncode);
-                if (checkTokenEmail == null || checkTokenEmail.UserId == null || checkTokenEmail.Token == null)
-                    return new ResultObject
-                    {
-                        Message = $"Token {_localizer[SharedResourceKeys.Error]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.Unauthorized
-                    };
-
-                #region Check user, token exists and check token
-                Guid.TryParse(checkTokenEmail.UserId, out Guid userGuid);
-                var checkUser = _unitOfWork.UserRepository.GetById(userGuid);
-                if (checkUser == null)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.User]} {_localizer[SharedResourceKeys.NotFound]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.NotFound
-                    };
-
-                var checkToken = _unitOfWork.EmailVerificationTokenRepository.FirstOrDefaultIncludeDelete(n => n.UserId == checkUser.Id);
-                if (checkToken == null || checkToken.TokenEmail != checkTokenEmail.Token)
-                    return new ResultObject
-                    {
-                        Message = $"Token {_localizer[SharedResourceKeys.Incorrect]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.Unauthorized
-                    };
-                #endregion
-
-                #region Create password and save data to Database
-                checkUser.Password = _generate.CreateRandomPassword();
-                var statusMail = await _mailService.SendEmailPassword(checkUser);
-                var passwordHasher = new PasswordHasher<User>();
-                checkUser.Password = passwordHasher.HashPassword(checkUser, checkUser.Password);
-                checkUser.VerifyEmail = true;
-                _unitOfWork.UserRepository.Update(checkUser);
-                _unitOfWork.EmailVerificationTokenRepository.Remove(checkToken);
-
-                var result = _unitOfWork.SaveChangesBool();
-                if (!result)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.InternalServerError
-                    };
-                #endregion
-
-                #region Add Document Elasticsearch
-                var response = await _elasticsearchService.CreateDocumentAsync(new
+                try
                 {
-                    Id = checkUser.Id,
-                    FirstName = checkUser.FirstName,
-                    LastName = checkUser.LastName,
-                    Email = checkUser.Email,
-                    PhoneNumber = checkUser.PhoneNumber
-                }, "users");
-                if (!response)
-                {
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.CreateFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch ",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.InternalServerError
-                    };
-                }
-                #endregion
+                    var checkTokenEmail = _generate.DecodeFromBase64(tokenEncode);
+                    if (checkTokenEmail == null || checkTokenEmail.UserId == null || checkTokenEmail.Token == null)
+                        return new ResultObject
+                        {
+                            Message = $"Token {_localizer[SharedResourceKeys.Error]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.Unauthorized
+                        };
 
-                return new ResultObject
-                {
-                    Data = $"{_localizer[SharedResourceKeys.ConfirmEmailSuccessful]}",
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
-            }
-        }
-        public async Task<ResultObject> ForgotPassword(string email)
-        {
-            try
-            {
-                #region Check email and otp
-                var checkUser = _unitOfWork.UserRepository.FirstOrDefault(u => u.Email == email);
-                if (checkUser == null)
-                    return new ResultObject
-                    {
-                        Message = $"Email {_localizer[SharedResourceKeys.NotFound]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.NotFound
-                    };
-                var checkOTP = _unitOfWork.OTPResetPasswordRepository.FirstOrDefaultIncludeDelete(u => u.Email == email);
-                if (checkOTP != null)
-                {
-                    // if exist => update
-                    checkOTP.OTP = _generate.GenerateOTP();
-                    checkOTP.ExpiredTime = DateTime.Now.AddMinutes(5);
-                    _unitOfWork.OTPResetPasswordRepository.Update(checkOTP);
-                    _unitOfWork.SaveChanges();
+                    #region Check user, token exists and check token
+                    Guid.TryParse(checkTokenEmail.UserId, out Guid userGuid);
+                    var user = _unitOfWork.UserRepository.GetById(userGuid);
+                    if (user == null)
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.User]} {_localizer[SharedResourceKeys.NotFound]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
 
-                    var statusSendMail = await _mailService.SendPasswordResetEmail(checkOTP);
+                    var token = _unitOfWork.EmailVerificationTokenRepository.FirstOrDefaultIncludeDelete(n => n.UserId == user.Id);
+                    if (token == null || token.TokenEmail != checkTokenEmail.Token)
+                        return new ResultObject
+                        {
+                            Message = $"Token {_localizer[SharedResourceKeys.Incorrect]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.Unauthorized
+                        };
+                    #endregion
+
+                    #region Create password and save data to Database
+                    user.Password = _generate.CreateRandomPassword();
+
+                    var statusMail = await _mailService.SendEmailPassword(user);
+                    if (!statusMail)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.EmailSendFailde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    var passwordHasher = new PasswordHasher<User>();
+                    user.Password = passwordHasher.HashPassword(user, user.Password);
+                    user.VerifyEmail = true;
+                    _unitOfWork.UserRepository.Update(user);
+                    _unitOfWork.EmailVerificationTokenRepository.Remove(token);
+
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        transaction.Rollback(); 
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    #region Add Document Elasticsearch
+                    var response = await _elasticsearchService.CreateDocumentAsync(new
+                    {
+                        Id = user.Id,
+                        FirstName = user.FirstName,
+                        LastName = user.LastName,
+                        Email = user.Email,
+                        PhoneNumber = user.PhoneNumber
+                    }, "users");
+                    if (!response)
+                    {
+                        transaction.Rollback(); 
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.CreateFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch ",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    transaction.Commit();
                     return new ResultObject
                     {
-                        Data = statusSendMail,
+                        Data = $"{_localizer[SharedResourceKeys.ConfirmEmailSuccessful]}",
                         Success = true,
                         StatusCode = EnumStatusCodesResult.Success
                     };
                 }
-                #endregion
-
-                var otp = new OTPResetPassword()
+                catch (Exception ex)
                 {
-                    Email = checkUser.Email,
-                    OTP = _generate.GenerateOTP(),
-                    ExpiredTime = DateTime.Now.AddMinutes(5),
-                };
-                _unitOfWork.OTPResetPasswordRepository.Add(otp);
-                var result = _unitOfWork.SaveChangesBool();
-                if (!result)
+                    transaction.Rollback();
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
-                        Success = true,
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
+                }
+                finally
+                {
+                    _unitOfWork.Dispose();
+                }
+            }
+        }
+        public async Task<ResultObject> ForgotPassword(string email)
+        {
+            using (var transaction = _unitOfWork.BeginTransaction())
+            {
+                try
+                {
+                    #region Check email and otp
+                    var user = _unitOfWork.UserRepository.FirstOrDefault(u => u.Email == email);
+                    if (user == null)
+                        return new ResultObject
+                        {
+                            Message = $"Email {_localizer[SharedResourceKeys.NotFound]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
 
-                // Send email password to user
-                var statusMail = await _mailService.SendPasswordResetEmail(otp);
-                if (!statusMail)
+                    var otp = _unitOfWork.OTPResetPasswordRepository.FirstOrDefaultIncludeDelete(u => u.Email == email);
+                    if (otp != null)
+                    {
+                        // if exist => update
+                        otp.OTP = _generate.GenerateOTP();
+                        otp.ExpiredTime = DateTime.Now.AddMinutes(5);
+                        _unitOfWork.OTPResetPasswordRepository.Update(otp);
+                        var resultUpdate = _unitOfWork.SaveChangesBool();
+                        if (!resultUpdate)
+                        {
+                            transaction.Rollback();
+                            return new ResultObject
+                            {
+                                Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                                Success = true,
+                                StatusCode = EnumStatusCodesResult.InternalServerError
+                            };
+                        }
+
+                        var statusSendMail = await _mailService.SendPasswordResetEmail(otp);
+                        if (!statusSendMail)
+                        {
+                            transaction.Rollback();
+                            return new ResultObject
+                            {
+                                Message = _localizer[SharedResourceKeys.EmailSendFailde],
+                                Success = true,
+                                StatusCode = EnumStatusCodesResult.InternalServerError
+                            };
+                        }
+
+                        transaction.Commit();
+                        return new ResultObject
+                        {
+                            Data = statusSendMail,
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.Success
+                        };
+                    }
+                    #endregion
+
+                    var newOtp = new OTPResetPassword()
+                    {
+                        Email = user.Email,
+                        OTP = _generate.GenerateOTP(),
+                        ExpiredTime = DateTime.Now.AddMinutes(5),
+                    };
+                    _unitOfWork.OTPResetPasswordRepository.Add(newOtp);
+                    var resultAdd = _unitOfWork.SaveChangesBool();
+                    if (!resultAdd)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    var statusMail = await _mailService.SendPasswordResetEmail(newOtp);
+                    if (!statusMail)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = _localizer[SharedResourceKeys.EmailSendFailde],
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    transaction.Commit();
                     return new ResultObject
                     {
-                        Message = _localizer[SharedResourceKeys.EmailSendFailde],
+                        Data = statusMail,
                         Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    return new ResultObject
+                    {
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
-
-                return new ResultObject
+                }
+                finally
                 {
-                    Data = statusMail,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
+                    _unitOfWork.Dispose();
+                }
             }
         }
         public async Task<ResultObject> CornfirmOTPChangePassword(PasswordConfirm passwordConfirm)
@@ -343,9 +408,9 @@ namespace BusinessLogic_Layer.Service
             try
             {
                 #region Check email and otp
-                var checkUser = _unitOfWork.UserRepository.FirstOrDefault(u => u.Email == passwordConfirm.Email);
-                var checkOtp = _unitOfWork.OTPResetPasswordRepository.FirstOrDefaultIncludeDelete(u => u.Email == passwordConfirm.Email);
-                if (checkUser == null || checkOtp == null)
+                var user = _unitOfWork.UserRepository.FirstOrDefault(u => u.Email == passwordConfirm.Email);
+                var otp = _unitOfWork.OTPResetPasswordRepository.FirstOrDefaultIncludeDelete(u => u.Email == passwordConfirm.Email);
+                if (user == null || otp == null)
                     return new ResultObject
                     {
                         Message = $"Email {_localizer[SharedResourceKeys.Incorrect]}",
@@ -353,7 +418,7 @@ namespace BusinessLogic_Layer.Service
                         StatusCode = EnumStatusCodesResult.Unauthorized
                     };
 
-                if (passwordConfirm.OTP != checkOtp.OTP)
+                if (passwordConfirm.OTP != otp.OTP)
                     return new ResultObject
                     {
                         Message = $"OTP {_localizer[SharedResourceKeys.Incorrect]}",
@@ -361,7 +426,7 @@ namespace BusinessLogic_Layer.Service
                         StatusCode = EnumStatusCodesResult.Unauthorized
                     };
 
-                if (DateTime.Now > checkOtp.ExpiredTime)
+                if (DateTime.Now > otp.ExpiredTime)
                     return new ResultObject
                     {
                         Message = $"OTP {_localizer[SharedResourceKeys.ExpiredTime]}",
@@ -371,9 +436,9 @@ namespace BusinessLogic_Layer.Service
                 #endregion
 
                 var passwordHasher = new PasswordHasher<User>();
-                checkUser.Password = passwordHasher.HashPassword(checkUser, passwordConfirm.NewPassword);
-                _unitOfWork.UserRepository.Update(checkUser);
-                _unitOfWork.OTPResetPasswordRepository.Remove(checkOtp);
+                user.Password = passwordHasher.HashPassword(user, passwordConfirm.NewPassword);
+                _unitOfWork.UserRepository.Update(user);
+                _unitOfWork.OTPResetPasswordRepository.Remove(otp);
                 _unitOfWork.SaveChanges();
 
                 return new ResultObject

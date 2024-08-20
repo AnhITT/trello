@@ -29,10 +29,10 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                var data = _unitOfWork.WorkspaceRepository.GetAll();
+                var workspaces = _unitOfWork.WorkspaceRepository.GetAll();
                 return new ResultObject
                 {
-                    Data = data,
+                    Data = workspaces,
                     Success = true,
                     StatusCode = EnumStatusCodesResult.Success
                 };
@@ -113,339 +113,406 @@ namespace BusinessLogic_Layer.Service
         }
         public async Task<ResultObject> Create(ApiWorkspace apiWorkspace)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                apiWorkspace.Id = Guid.NewGuid();
-                var mapApiWorkspace = _mapper.Map<ApiWorkspace, Workspace>(apiWorkspace);
-
-                if (apiWorkspace.UserIds.Count != 0)
+                try
                 {
-                    mapApiWorkspace.WorkspaceUsers = new List<WorkspaceUser>();
-                    foreach (var userId in apiWorkspace.UserIds)
+                    apiWorkspace.Id = Guid.NewGuid();
+                    var workspace = _mapper.Map<ApiWorkspace, Workspace>(apiWorkspace);
+
+                    if (apiWorkspace.UserIds.Count != 0)
                     {
-                        var user = _unitOfWork.UserRepository.FirstOrDefault(n => n.Id == userId);
-                        if (user == null)
+                        workspace.WorkspaceUsers = new List<WorkspaceUser>();
+                        foreach (var userId in apiWorkspace.UserIds)
                         {
-                            return new ResultObject
+                            var user = _unitOfWork.UserRepository.FirstOrDefault(n => n.Id == userId);
+                            if (user == null)
                             {
-                                Message = $"{_localizer[SharedResourceKeys.User]} {user.Email} {_localizer[SharedResourceKeys.NotFound]}",
-                                Success = true,
-                                StatusCode = EnumStatusCodesResult.Success
-                            };
+                                return new ResultObject
+                                {
+                                    Message = $"{_localizer[SharedResourceKeys.User]} {user.Email} {_localizer[SharedResourceKeys.NotFound]}",
+                                    Success = true,
+                                    StatusCode = EnumStatusCodesResult.Success
+                                };
+                            }
+                            workspace.WorkspaceUsers.Add(new WorkspaceUser
+                            {
+                                UserId = user.Id,
+                                WorkspaceId = workspace.Id
+                            });
                         }
-                        mapApiWorkspace.WorkspaceUsers.Add(new WorkspaceUser
-                        {
-                            UserId = user.Id,
-                            WorkspaceId = mapApiWorkspace.Id
-                        });
                     }
-                }
 
-                _unitOfWork.WorkspaceRepository.Add(mapApiWorkspace);
-                var result = _unitOfWork.SaveChangesBool();
-                if (!result)
+                    _unitOfWork.WorkspaceRepository.Add(workspace);
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.Success
+                        };
+                    }
+
+                    #region Add Document to Elasticsearch
+                    apiWorkspace.Type = ElasticsearchKeys.WorkspaceType;
+                    var response = await _elasticsearchService.CreateDocumentAsync(apiWorkspace, ElasticsearchKeys.WorkspaceIndex);
+                    if (!response)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.CreateFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch ",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.Success
+                        };
+                    }
+                    #endregion
+
+                    transaction.Commit();
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                        Data = true,
                         Success = true,
                         StatusCode = EnumStatusCodesResult.Success
                     };
-
-                #region Add Document to Elasticsearch
-                apiWorkspace.Type = ElasticsearchKeys.WorkspaceType;
-                var response = await _elasticsearchService.CreateDocumentAsync(apiWorkspace, ElasticsearchKeys.WorkspaceIndex);
-                if (!response)
+                }
+                catch (Exception ex)
                 {
+                    transaction.Rollback();
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.CreateFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch ",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.Success
+                        Message = ex.Message,
+                        Success = false,
+                        StatusCode = EnumStatusCodesResult.InternalServerError
                     };
                 }
-                #endregion
-
-                return new ResultObject
+                finally
                 {
-                    Data = true,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
+                    _unitOfWork.Dispose();
+                }
             }
         }
         public async Task<ResultObject> Update(ApiWorkspace apiWorkspace)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                #region Check workspace exists
-                var checkWorkspace = _unitOfWork.WorkspaceRepository.FirstOrDefault(n => n.Id == apiWorkspace.Id);
-                if (checkWorkspace == null)
-                    return new ResultObject
+                try
+                {
+                    #region Check workspace exists
+                    var workspace = _unitOfWork.WorkspaceRepository.FirstOrDefault(n => n.Id == apiWorkspace.Id);
+                    if (workspace == null)
                     {
-                        Message = $"{_localizer[SharedResourceKeys.Workspace]} {_localizer[SharedResourceKeys.NotFound]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.NotFound
-                    };
-                #endregion
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.Workspace]} {_localizer[SharedResourceKeys.NotFound]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
+                    }
+                    #endregion
 
-                _mapper.Map(apiWorkspace, checkWorkspace);
+                    _mapper.Map(apiWorkspace, workspace);
 
-                #region Update WorkspaceUser relations
-                var existingWorkspaceUsers = _unitOfWork.WorkspaceUserRepository
-                                                            .Find(wu => wu.WorkspaceId == checkWorkspace.Id)
+                    #region Update WorkspaceUser relations
+                    var existingWorkspaceUsers = _unitOfWork.WorkspaceUserRepository
+                                                            .Find(wu => wu.WorkspaceId == workspace.Id)
                                                             .ToList();
 
-                var newUserIds = apiWorkspace.UserIds;
+                    var newUserIds = apiWorkspace.UserIds;
 
-                // Find users to remove
-                var usersToRemove = existingWorkspaceUsers
-                    .Where(e => !newUserIds.Contains(e.UserId))
-                    .ToList();
+                    // Find users to remove
+                    var usersToRemove = existingWorkspaceUsers
+                        .Where(e => !newUserIds.Contains(e.UserId))
+                        .ToList();
 
-                // Find users to add
-                var usersToAdd = newUserIds
-                    .Where(id => !existingWorkspaceUsers.Any(e => e.UserId == id))
-                    .Select(id => new WorkspaceUser { WorkspaceId = checkWorkspace.Id, UserId = id })
-                    .ToList();
+                    // Find users to add
+                    var usersToAdd = newUserIds
+                        .Where(id => !existingWorkspaceUsers.Any(e => e.UserId == id))
+                        .Select(id => new WorkspaceUser { WorkspaceId = workspace.Id, UserId = id })
+                        .ToList();
 
-                _unitOfWork.WorkspaceUserRepository.RemoveRange(usersToRemove);
-                _unitOfWork.WorkspaceUserRepository.AddRange(usersToAdd);
-                #endregion
+                    _unitOfWork.WorkspaceUserRepository.RemoveRange(usersToRemove);
+                    _unitOfWork.WorkspaceUserRepository.AddRange(usersToAdd);
+                    #endregion
 
-                _unitOfWork.WorkspaceRepository.Update(checkWorkspace);
-                var result = _unitOfWork.SaveChangesBool();
-                if (!result)
+                    _unitOfWork.WorkspaceRepository.Update(workspace);
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    #region Update Document Elasticsearch
+                    apiWorkspace.Type = ElasticsearchKeys.WorkspaceType;
+                    var response = await _elasticsearchService.UpdateDocumentAsync(apiWorkspace, ElasticsearchKeys.WorkspaceIndex, workspace.Id);
+                    if (!response)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.UpdateFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    transaction.Commit();
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                        Data = true,
                         Success = true,
-                        StatusCode = EnumStatusCodesResult.InternalServerError
+                        StatusCode = EnumStatusCodesResult.Success
                     };
-
-                #region Update Document Elasticsearch
-                apiWorkspace.Type = ElasticsearchKeys.WorkspaceType;
-                var response = await _elasticsearchService.UpdateDocumentAsync(apiWorkspace, ElasticsearchKeys.WorkspaceIndex, checkWorkspace.Id);
-                if (!response)
+                }
+                catch (Exception ex)
                 {
+                    transaction.Rollback();
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.UpdateFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch",
-                        Success = true,
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
                 }
-                #endregion
-
-                return new ResultObject
+                finally
                 {
-                    Data = true,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
+                    _unitOfWork.Dispose();
+                }
             }
         }
         public async Task<ResultObject> Delete(Guid idWorkspace)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                #region Check workspace exists
-                var checkWorkspace = _unitOfWork.WorkspaceRepository.FirstOrDefault(n => n.Id == idWorkspace);
-                if (checkWorkspace == null)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.Workspace]} {_localizer[SharedResourceKeys.NotFound]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.NotFound
-                    };
-                #endregion
-
-                _unitOfWork.WorkspaceRepository.Remove(checkWorkspace);
-                var result = _unitOfWork.SaveChangesBool();
-                if (!result)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.InternalServerError
-                    };
-                var deleteChildTask = _deleteChild.DeleteChildWorkspace(idWorkspace);
-                await deleteChildTask;
-                _unitOfWork.SaveChanges();
-
-                #region Delete Document Elasticsearch
-                var response = await _elasticsearchService.DeleteDocumentAsync(idWorkspace, ElasticsearchKeys.WorkspaceIndex);
-                if (!response)
+                try
                 {
+                    #region Check workspace exists
+                    var workspace = _unitOfWork.WorkspaceRepository.FirstOrDefault(n => n.Id == idWorkspace);
+                    if (workspace == null)
+                    {
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.Workspace]} {_localizer[SharedResourceKeys.NotFound]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
+                    }
+                    #endregion
+
+                    _unitOfWork.WorkspaceRepository.Remove(workspace);
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    var deleteChildTask = _deleteChild.DeleteChildWorkspace(idWorkspace);
+                    await deleteChildTask;
+
+                    var resultDelete = _unitOfWork.SaveChangesBool();
+                    if (!resultDelete)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    #region Delete Document Elasticsearch
+                    var response = await _elasticsearchService.DeleteDocumentAsync(idWorkspace, ElasticsearchKeys.WorkspaceIndex);
+                    if (!response)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.DeleteFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    transaction.Commit();
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.DeleteFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch",
+                        Data = true,
                         Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    return new ResultObject
+                    {
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
                 }
-                #endregion
-
-                return new ResultObject
+                finally
                 {
-                    Data = true,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
+                    _unitOfWork.Dispose();
+                }
             }
         }
         public async Task<ResultObject> AddUserToWorkspace(ApiUserWorkspace apiUserWorkspace)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                #region Check exists
-                var checkUser = _unitOfWork.UserRepository.FirstOrDefault(n => n.Id == apiUserWorkspace.UserId);
-                if (checkUser == null)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.User]} {_localizer[SharedResourceKeys.NotFound]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.NotFound
-                    };
-
-                var checkWorkspace = _unitOfWork.WorkspaceRepository.FirstOrDefault(n => n.Id == apiUserWorkspace.WorkspaceId);
-                if (checkWorkspace == null)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.Workspace]} {_localizer[SharedResourceKeys.NotFound]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.NotFound
-                    };
-                #endregion
-
-                var checkWorkspaceUser = _unitOfWork.WorkspaceUserRepository.FirstOrDefaultIncludeDelete(n => n.WorkspaceId == apiUserWorkspace.WorkspaceId 
-                                                                                                         && n.UserId == apiUserWorkspace.UserId);
-                if(checkWorkspaceUser != null)
+                try
                 {
-                    _unitOfWork.WorkspaceUserRepository.Restore(checkWorkspaceUser);
-                }
-                else
-                {
-                    //User already exists
-                    var checkExitst = _unitOfWork.WorkspaceUserRepository
-                        .FirstOrDefault(n => n.UserId == checkUser.Id && n.WorkspaceId == checkWorkspace.Id);
-                    if (checkExitst != null)
+                    #region Check user and workspace exists
+                    var user = _unitOfWork.UserRepository.FirstOrDefault(n => n.Id == apiUserWorkspace.UserId);
+                    if (user == null)
+                    {
                         return new ResultObject
                         {
-                            Message = $"{_localizer[SharedResourceKeys.User]} {_localizer[SharedResourceKeys.AlreadyExists]} " +
-                            $"{_localizer[SharedResourceKeys.Workspace]}",
+                            Message = $"{_localizer[SharedResourceKeys.User]} {_localizer[SharedResourceKeys.NotFound]}",
                             Success = true,
                             StatusCode = EnumStatusCodesResult.NotFound
                         };
-                    checkWorkspace.WorkspaceUsers = new List<WorkspaceUser>();
-                    checkWorkspace.WorkspaceUsers.Add(new WorkspaceUser
+                    }
+
+                    var workspace = _unitOfWork.WorkspaceRepository.FirstOrDefault(n => n.Id == apiUserWorkspace.WorkspaceId);
+                    if (workspace == null)
                     {
-                        UserId = checkUser.Id,
-                        WorkspaceId = checkWorkspace.Id
-                    });
-                    _unitOfWork.WorkspaceRepository.Update(checkWorkspace);
-                }
-                
-                var result = _unitOfWork.SaveChangesBool();
-                if (!result)
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.Workspace]} {_localizer[SharedResourceKeys.NotFound]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
+                    }
+                    #endregion
+
+                    var workspaceUser = _unitOfWork.WorkspaceUserRepository.FirstOrDefaultIncludeDelete(n => n.WorkspaceId == apiUserWorkspace.WorkspaceId
+                                                                                                     && n.UserId == apiUserWorkspace.UserId);
+                    if (workspaceUser != null)
+                    {
+                        _unitOfWork.WorkspaceUserRepository.Restore(workspaceUser);
+                    }
+                    else
+                    {
+                        // Check if user already exists in the workspace
+                        var checkExist = _unitOfWork.WorkspaceUserRepository
+                            .FirstOrDefault(n => n.UserId == user.Id && n.WorkspaceId == workspace.Id);
+                        if (checkExist != null)
+                        {
+                            transaction.Rollback();
+                            return new ResultObject
+                            {
+                                Message = $"{_localizer[SharedResourceKeys.User]} {_localizer[SharedResourceKeys.AlreadyExists]} " +
+                                          $"{_localizer[SharedResourceKeys.Workspace]}",
+                                Success = true,
+                                StatusCode = EnumStatusCodesResult.NotFound
+                            };
+                        }
+
+                        workspace.WorkspaceUsers.Add(new WorkspaceUser
+                        {
+                            UserId = user.Id,
+                            WorkspaceId = workspace.Id
+                        });
+
+                        _unitOfWork.WorkspaceRepository.Update(workspace);
+                    }
+
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    #region Update Document Elasticsearch
+                    var currentDocument = await _elasticsearchService.GetDocumentByIdAsync(workspace.Id, ElasticsearchKeys.WorkspaceIndex);
+                    if (currentDocument == null)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.NotFound]} {_localizer[SharedResourceKeys.Document]} Elasticsearch",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
+                    }
+
+                    var source = currentDocument as IDictionary<string, object>;
+                    if (source == null || !source.ContainsKey("userIds"))
+                    {
+                        source = new Dictionary<string, object>();
+                    }
+
+                    var userIds = source.ContainsKey("userIds") ? source["userIds"] as List<object> : new List<object>();
+                    if (userIds == null)
+                    {
+                        userIds = new List<object>();
+                    }
+
+                    userIds.Add(apiUserWorkspace.UserId.ToString());
+                    source["userIds"] = userIds;
+
+                    var updateResponse = await _elasticsearchService.UpdateDocumentAsync(source, ElasticsearchKeys.WorkspaceIndex, workspace.Id);
+                    if (!updateResponse)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.CreateFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    transaction.Commit();
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                        Data = true,
                         Success = true,
                         StatusCode = EnumStatusCodesResult.Success
                     };
-
-                #region Update Document Elasticsearch
-                var currentDocument = await _elasticsearchService.GetDocumentByIdAsync(checkWorkspace.Id, ElasticsearchKeys.WorkspaceIndex);
-                if (currentDocument == null)
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.NotFound]} {_localizer[SharedResourceKeys.Document]} Elasticsearch",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.Success
-                    };
-
-                // Update the userIds in the document
-                var source = currentDocument as IDictionary<string, object>;
-                if (source == null || !source.ContainsKey("userIds"))
-                {
-                    source = new Dictionary<string, object>();
-                }
-
-                var userIds = source.ContainsKey("userIds") ? source["userIds"] as List<object> : new List<object>();
-                if (userIds == null)
-                {
-                    userIds = new List<object>();
-                }
-
-                userIds.Add(apiUserWorkspace.UserId.ToString());
-                source["userIds"] = userIds;
-
-                var updateResponse = await _elasticsearchService.UpdateDocumentAsync(source, "workspaces", checkWorkspace.Id);
-                if (!updateResponse)
-                {
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.CreateFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.Success
+                        Message = ex.Message,
+                        Success = false,
+                        StatusCode = EnumStatusCodesResult.InternalServerError
                     };
                 }
-                #endregion
-
-                return new ResultObject
+                finally
                 {
-                    Data = true,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
+                    _unitOfWork.Dispose();
+                }
             }
         }
     }

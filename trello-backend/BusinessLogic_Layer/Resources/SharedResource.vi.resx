@@ -126,6 +126,9 @@
   <data name="Board" xml:space="preserve">
     <value>Bảng</value>
   </data>
+  <data name="Chat" xml:space="preserve">
+    <value>Cuộc hội thoại </value>
+  </data>
   <data name="CheckList" xml:space="preserve">
     <value>Việc cần làm</value>
   </data>

@@ -39,5 +39,6 @@ namespace BusinessLogic_Layer
         public static string Failde = "Failde";
         public static string CheckListItem = "CheckListItem";
         public static string ConfirmEmailSuccessful = "ConfirmEmailSuccessful";
+        public static string Chat = "Chat";
     }
 }

@@ -26,8 +26,8 @@ namespace BusinessLogic_Layer.Service
             try
             {
                 #region Check task card and user exists
-                var checkTaskCard = _unitOfWork.TaskCardRepository.FirstOrDefault(n => n.Id == apiComment.TaskId);
-                if (checkTaskCard == null)
+                var taskCard = _unitOfWork.TaskCardRepository.FirstOrDefault(n => n.Id == apiComment.TaskId);
+                if (taskCard == null)
                     return new ResultObject
                     {
                         Message = $"{_localizer[SharedResourceKeys.TaskCard]} {_localizer[SharedResourceKeys.NotFound]}",
@@ -35,8 +35,8 @@ namespace BusinessLogic_Layer.Service
                         StatusCode = EnumStatusCodesResult.NotFound,
                     };
 
-                var checkUser = _unitOfWork.UserRepository.FirstOrDefault(n => n.Id == apiComment.UserId);
-                if (checkUser == null)
+                var user = _unitOfWork.UserRepository.FirstOrDefault(n => n.Id == apiComment.UserId);
+                if (user == null)
                     return new ResultObject
                     {
                         Message = $"{_localizer[SharedResourceKeys.User]} {_localizer[SharedResourceKeys.NotFound]}",
@@ -46,9 +46,9 @@ namespace BusinessLogic_Layer.Service
                 #endregion
 
                 #region Add to Databasee
-                var mapApiComment = _mapper.Map<ApiComment, Comment>(apiComment);
-                mapApiComment.TaskCards = checkTaskCard;
-                _unitOfWork.CommentRepository.Add(mapApiComment);
+                var comment = _mapper.Map<ApiComment, Comment>(apiComment);
+                comment.TaskCards = taskCard;
+                _unitOfWork.CommentRepository.Add(comment);
                 _unitOfWork.SaveChanges();
                 #endregion
 
@@ -78,8 +78,8 @@ namespace BusinessLogic_Layer.Service
             try
             {
                 #region Check Parent Comment and user exists
-                var checkUser = _unitOfWork.UserRepository.FirstOrDefault(n => n.Id == apiComment.UserId);
-                if (checkUser == null)
+                var user = _unitOfWork.UserRepository.FirstOrDefault(n => n.Id == apiComment.UserId);
+                if (user == null)
                 {
                     return new ResultObject
                     {
@@ -89,8 +89,8 @@ namespace BusinessLogic_Layer.Service
                     };
                 }
 
-                var checkParentComment = _unitOfWork.CommentRepository.FirstOrDefault(n => n.Id == apiComment.ParentCommentId);
-                if (checkParentComment == null)
+                var parentComment = _unitOfWork.CommentRepository.FirstOrDefault(n => n.Id == apiComment.ParentCommentId);
+                if (parentComment == null)
                 {
                     return new ResultObject
                     {
@@ -99,8 +99,8 @@ namespace BusinessLogic_Layer.Service
                         StatusCode = EnumStatusCodesResult.NotFound
                     };
                 }
-                var checkTaskCard = _unitOfWork.TaskCardRepository.FirstOrDefault(t => t.Id == checkParentComment.TaskId);
-                if (checkTaskCard == null)
+                var taskCard = _unitOfWork.TaskCardRepository.FirstOrDefault(t => t.Id == parentComment.TaskId);
+                if (taskCard == null)
                 {
                     return new ResultObject
                     {
@@ -113,8 +113,8 @@ namespace BusinessLogic_Layer.Service
 
                 #region Add Comment to Database
                 var mapApiComment = _mapper.Map<ApiComment, Comment>(apiComment);
-                mapApiComment.TaskCards = checkTaskCard;
-                mapApiComment.Users = checkUser;
+                mapApiComment.TaskCards = taskCard;
+                mapApiComment.Users = user;
 
                 _unitOfWork.CommentRepository.Add(mapApiComment);
                 _unitOfWork.SaveChanges();
@@ -146,8 +146,8 @@ namespace BusinessLogic_Layer.Service
             try
             {
                 #region Check task card exists
-                var checkTaskCard = _unitOfWork.TaskCardRepository.FirstOrDefault(t => t.Id == TaskId);
-                if (checkTaskCard == null)
+                var taskCard = _unitOfWork.TaskCardRepository.FirstOrDefault(t => t.Id == TaskId);
+                if (taskCard == null)
                 {
                     return new ResultObject
                     {
@@ -208,52 +208,77 @@ namespace BusinessLogic_Layer.Service
         }
         public async Task<ResultObject> Delete(Guid idComment)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                #region Check comment exists
-                var checkCommentDelete = _unitOfWork.CommentRepository.FirstOrDefault(t => t.Id == idComment);
-                if (checkCommentDelete == null)
+                try
                 {
+                    #region Check comment exists
+                    var comment = _unitOfWork.CommentRepository.FirstOrDefault(t => t.Id == idComment);
+                    if (comment == null)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Data = false,
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.Success
+                        };
+                    }
+                    #endregion
+
+                    #region Delete from Database
+                    _unitOfWork.CommentRepository.Remove(comment);
+                    var response = _unitOfWork.SaveChangesBool();
+                    if (!response)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Error]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    var deleteChildTask = _deleteChild.DeleteChildComment(idComment);
+                    await deleteChildTask;
+
+                    var saveChangesResult = _unitOfWork.SaveChangesBool();
+                    if (!saveChangesResult)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Error]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    transaction.Commit();
+
                     return new ResultObject
                     {
-                        Data = false,
+                        Data = true,
                         Success = true,
                         StatusCode = EnumStatusCodesResult.Success
                     };
                 }
-                #endregion
-
-                _unitOfWork.CommentRepository.Remove(checkCommentDelete);
-                var response = _unitOfWork.SaveChangesBool();
-                if (!response)
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Error]}",
-                        Success = true,
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
-                var deleteChildTask = _deleteChild.DeleteChildComment(idComment);
-                await deleteChildTask;
-                _unitOfWork.SaveChanges();
-                return new ResultObject
+                }
+                finally
                 {
-                    Data = true,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
+                    _unitOfWork.Dispose();
+                }
             }
         }
     }

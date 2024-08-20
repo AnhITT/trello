@@ -40,7 +40,7 @@ namespace Chat.Controllers
         [HttpPost("[action]")]
         public async Task<IActionResult> Create([FromBody] ApiChat apiChat)
         {
-            var respone = await _chatService.CreateChatAsync(apiChat);
+            var respone = await _chatService.Create(apiChat);
             if (respone.Success == false)
                 BadRequest(respone);
 

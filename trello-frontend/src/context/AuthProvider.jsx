@@ -36,16 +36,6 @@ export const AuthProvider = ({ children }) => {
         Cookies.set('token', response.data)
         const decodedUser = jwtDecode(response.data)
         setUser(decodedUser)
-        toast('Login Successful!', {
-          position: 'top-right',
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: 'light'
-        })
         window.location.href = '/board'
         return
       }

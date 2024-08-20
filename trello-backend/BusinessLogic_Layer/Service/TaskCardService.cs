@@ -30,10 +30,10 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                var data = _unitOfWork.TaskCardRepository.GetAll();
+                var taskCards = _unitOfWork.TaskCardRepository.GetAll();
                 return new ResultObject
                 {
-                    Data = data,
+                    Data = taskCards,
                     Success = true,
                     StatusCode = EnumStatusCodesResult.Success
                 };
@@ -56,10 +56,10 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                var data = _unitOfWork.CheckListRepository.GetAll();
+                var checkLists = _unitOfWork.CheckListRepository.GetAll();
                 return new ResultObject
                 {
-                    Data = data,
+                    Data = checkLists,
                     Success = true,
                     StatusCode = EnumStatusCodesResult.Success
                 };
@@ -82,10 +82,10 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                var data = _unitOfWork.CheckListItemRepository.GetAll();
+                var checkListItems = _unitOfWork.CheckListItemRepository.GetAll();
                 return new ResultObject
                 {
-                    Data = data,
+                    Data = checkListItems,
                     Success = true,
                     StatusCode = EnumStatusCodesResult.Success
                 };
@@ -106,216 +106,277 @@ namespace BusinessLogic_Layer.Service
         }
         public async Task<ResultObject> Create(ApiTaskCard apiTaskCard)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                #region Check workflow exists
-                var checkWorkflow = _unitOfWork.WorkflowRepository.FirstOrDefault(n => n.Id == apiTaskCard.WorkflowId);
-                if (checkWorkflow == null)
+                try
+                {
+                    #region Check workflow exists
+                    var workflow = _unitOfWork.WorkflowRepository.FirstOrDefault(n => n.Id == apiTaskCard.WorkflowId);
+                    if (workflow == null)
+                    {
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.Workflow]} {_localizer[SharedResourceKeys.NotFound]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
+                    }
+                    #endregion
+
+                    var checkPositionTask = _unitOfWork.TaskCardRepository.Context()
+                               .Where(w => w.WorkflowId == workflow.Id && w.IsDeleted == false)
+                               .OrderBy(w => w.Position)
+                               .ToList();
+
+                    int newPosition = 0;
+                    if (checkPositionTask.Any())
+                    {
+                        newPosition = checkPositionTask.Last().Position + 1;
+                    }
+
+                    #region Add data to Database
+                    apiTaskCard.Id = Guid.NewGuid();
+                    var taskCard = _mapper.Map<ApiTaskCard, TaskCard>(apiTaskCard);
+                    taskCard.Position = newPosition;
+                    _unitOfWork.TaskCardRepository.Add(taskCard);
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    #region Add Document to Elasticsearch
+                    apiTaskCard.Type = ElasticsearchKeys.TaskCardType;
+                    var response = await _elasticsearchService.CreateDocumentAsync(apiTaskCard, ElasticsearchKeys.WorkspaceIndex);
+                    if (!response)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.CreateFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    transaction.Commit();
+
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.Workflow]} {_localizer[SharedResourceKeys.NotFound]}",
+                        Data = taskCard,
                         Success = true,
-                        StatusCode = EnumStatusCodesResult.NotFound
+                        StatusCode = EnumStatusCodesResult.Success
                     };
-                #endregion
-
-                var checkPositionTask = _unitOfWork.TaskCardRepository.Context()
-                           .Where(w => w.WorkflowId == checkWorkflow.Id && w.IsDeleted == false)
-                           .OrderBy(w => w.Position)
-                           .ToList();
-
-                int newPosition = 0;
-                if (checkPositionTask.Any())
-                {
-                    newPosition = checkPositionTask.Last().Position + 1;
                 }
-
-                #region Add data to Database
-                apiTaskCard.Id = Guid.NewGuid();
-                var mapApiTaskCard = _mapper.Map<ApiTaskCard, TaskCard>(apiTaskCard);
-                mapApiTaskCard.Position = newPosition;
-                _unitOfWork.TaskCardRepository.Add(mapApiTaskCard);
-                var result = _unitOfWork.SaveChangesBool();
-                if (!result)
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
-                        Success = true,
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
-                #endregion
-
-                #region Add Document Elasticsearch
-                apiTaskCard.Type = ElasticsearchKeys.TaskCardType;
-                var response = await _elasticsearchService.CreateDocumentAsync(apiTaskCard, ElasticsearchKeys.WorkspaceIndex);
-                if (!response)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.CreateFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.InternalServerError
-                    };
-                #endregion
-
-                return new ResultObject
+                }
+                finally
                 {
-                    Data = mapApiTaskCard,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
+                    _unitOfWork.Dispose();
+                }
             }
         }
         public async Task<ResultObject> Update(ApiTaskCard apiTaskCard)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                #region Check Task Card exists
-                var checkTaskCard = _unitOfWork.TaskCardRepository.FirstOrDefault(n => n.Id == apiTaskCard.Id);
-                if (checkTaskCard == null)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.TaskCard]} {_localizer[SharedResourceKeys.NotFound]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.NotFound
-                    };
-                #endregion
-
-                #region Update data to Database
-                _mapper.Map(apiTaskCard, checkTaskCard);
-
-                _unitOfWork.TaskCardRepository.Update(checkTaskCard);
-                var result = _unitOfWork.SaveChangesBool();
-                if (!result)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.InternalServerError
-                    };
-                #endregion
-
-                #region Update Document Elasticsearch
-                apiTaskCard.Type = ElasticsearchKeys.TaskCardType;
-                var response = await _elasticsearchService.UpdateDocumentAsync(apiTaskCard, ElasticsearchKeys.WorkspaceIndex, checkTaskCard.Id);
-                if (!response)
+                try
                 {
+                    #region Check Task Card exists
+                    var taskCard = _unitOfWork.TaskCardRepository.FirstOrDefault(n => n.Id == apiTaskCard.Id);
+                    if (taskCard == null)
+                    {
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.TaskCard]} {_localizer[SharedResourceKeys.NotFound]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
+                    }
+                    #endregion
+
+                    #region Update data to Database
+                    _mapper.Map(apiTaskCard, taskCard);
+                    _unitOfWork.TaskCardRepository.Update(taskCard);
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    #region Update Document in Elasticsearch
+                    apiTaskCard.Type = ElasticsearchKeys.TaskCardType;
+                    var response = await _elasticsearchService.UpdateDocumentAsync(apiTaskCard, ElasticsearchKeys.WorkspaceIndex, taskCard.Id);
+                    if (!response)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.UploadFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    transaction.Commit();
+
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.UploadFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch ",
+                        Data = true,
                         Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    return new ResultObject
+                    {
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
                 }
-                #endregion
-
-                return new ResultObject
+                finally
                 {
-                    Data = true,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
+                    _unitOfWork.Dispose();
+                }
             }
         }
         public async Task<ResultObject> Delete(Guid idTaskCard)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                #region Check Task Card exists
-                var checkTaskCard = _unitOfWork.TaskCardRepository.FirstOrDefault(n => n.Id == idTaskCard);
-                if (checkTaskCard == null)
-                    return new ResultObject
+                try
+                {
+                    #region Check Task Card exists
+                    var taskCard = _unitOfWork.TaskCardRepository.FirstOrDefault(n => n.Id == idTaskCard);
+                    if (taskCard == null)
                     {
-                        Message = $"{_localizer[SharedResourceKeys.TaskCard]} {_localizer[SharedResourceKeys.NotFound]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.NotFound
-                    };
-                #endregion
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.TaskCard]} {_localizer[SharedResourceKeys.NotFound]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
+                    }
+                    #endregion
 
-                #region Delete data to Database
-                _unitOfWork.TaskCardRepository.Remove(checkTaskCard);
-                var result = _unitOfWork.SaveChangesBool();
-                if (!result)
+                    #region Delete data from Database
+                    _unitOfWork.TaskCardRepository.Remove(taskCard);
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    var checkPositionTask = _unitOfWork.TaskCardRepository.Context()
+                        .Where(w => w.WorkflowId == taskCard.WorkflowId && w.IsDeleted == false)
+                        .OrderBy(w => w.Position)
+                        .ToList();
+
+                    // Cập nhật vị trí của các task card khác
+                    for (int i = 0; i < checkPositionTask.Count; i++)
+                    {
+                        checkPositionTask[i].Position = i;
+                    }
+
+                    _unitOfWork.TaskCardRepository.UpdateRange(checkPositionTask); // Cập nhật vị trí mới cho các task card
+                    result = _unitOfWork.SaveChangesBool(); 
+                    if (!result)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    var deleteChildTask = _deleteChild.DeleteChildTaskCard(idTaskCard);
+                    await deleteChildTask;
+
+                    var resultDelete = _unitOfWork.SaveChangesBool();
+                    if (!resultDelete)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    #region Delete Document from Elasticsearch
+                    var response = await _elasticsearchService.DeleteDocumentAsync(idTaskCard, ElasticsearchKeys.WorkspaceIndex);
+                    if (!response)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.DeleteFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    transaction.Commit();
+
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                        Data = true,
                         Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    return new ResultObject
+                    {
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
-
-                var checkPositionTask = _unitOfWork.TaskCardRepository.Context()
-                   .Where(w => w.WorkflowId == checkTaskCard.WorkflowId && w.IsDeleted == false)
-                   .OrderBy(w => w.Position)
-                   .ToList();
-
-                // Cập nhật vị trí của các workflow khác
-                for (int i = 0; i < checkPositionTask.Count; i++)
-                {
-                    checkPositionTask[i].Position = i;
                 }
-
-                var deleteChildTask = _deleteChild.DeleteChildTaskCard(idTaskCard);
-                await deleteChildTask;
-                _unitOfWork.SaveChanges();
-                #endregion
-
-                #region Delete Document Elasticsearch
-                var response = await _elasticsearchService.DeleteDocumentAsync(idTaskCard, ElasticsearchKeys.WorkspaceIndex);
-                if (!response)
+                finally
                 {
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.DeleteFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch ",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.InternalServerError
-                    };
+                    _unitOfWork.Dispose();
                 }
-                #endregion
-
-                return new ResultObject
-                {
-                    Data = true,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
             }
         }
         public async Task<ResultObject> AddUserToTask(ApiUserTask apiUserTask)
@@ -323,9 +384,9 @@ namespace BusinessLogic_Layer.Service
             try
             {
                 #region Check Task Card and User exists
-                var checkUser = _unitOfWork.UserRepository
+                var user = _unitOfWork.UserRepository
                     .FirstOrDefault(n => n.Id == apiUserTask.UserId);
-                if (checkUser == null)
+                if (user == null)
                     return new ResultObject
                     {
                         Message = $"{_localizer[SharedResourceKeys.User]} {_localizer[SharedResourceKeys.NotFound]}",
@@ -333,9 +394,9 @@ namespace BusinessLogic_Layer.Service
                         StatusCode = EnumStatusCodesResult.NotFound
                     };
 
-                var checkTaskCard = _unitOfWork.TaskCardRepository
+                var taskCard = _unitOfWork.TaskCardRepository
                     .FirstOrDefault(n => n.Id == apiUserTask.TaskId);
-                if (checkTaskCard == null)
+                if (taskCard == null)
                     return new ResultObject
                     {
                         Message = $"{_localizer[SharedResourceKeys.TaskCard]} {_localizer[SharedResourceKeys.NotFound]}",
@@ -345,7 +406,7 @@ namespace BusinessLogic_Layer.Service
 
                 //User already exists
                 var checkExitst = _unitOfWork.TaskCardUserRepository
-                    .FirstOrDefault(n => n.UserId == checkUser.Id && n.TaskId == checkTaskCard.Id);
+                    .FirstOrDefault(n => n.UserId == user.Id && n.TaskId == taskCard.Id);
                 if (checkExitst != null)
                     return new ResultObject
                     {
@@ -358,15 +419,16 @@ namespace BusinessLogic_Layer.Service
                 #endregion
 
                 #region Add data to Database
-                checkTaskCard.TaskCardUsers = new List<TaskCardUser>();
-                checkTaskCard.TaskCardUsers.Add(new TaskCardUser
+                taskCard.TaskCardUsers = new List<TaskCardUser>();
+                taskCard.TaskCardUsers.Add(new TaskCardUser
                 {
-                    UserId = checkUser.Id,
-                    TaskId = checkTaskCard.Id
+                    UserId = user.Id,
+                    TaskId = taskCard.Id
                 });
-                _unitOfWork.TaskCardRepository.Update(checkTaskCard);
+                _unitOfWork.TaskCardRepository.Update(taskCard);
                 _unitOfWork.SaveChanges();
                 #endregion
+
                 return new ResultObject
                 {
                     Data = true,
@@ -393,9 +455,9 @@ namespace BusinessLogic_Layer.Service
             try
             {
                 #region Check Task Card exists
-                var checkTaskCard = _unitOfWork.TaskCardRepository
+                var taskCard = _unitOfWork.TaskCardRepository
                     .FirstOrDefault(n => n.Id == apiCheckList.TaskId);
-                if (checkTaskCard == null)
+                if (taskCard == null)
                     return new ResultObject
                     {
                         Message = $"{_localizer[SharedResourceKeys.TaskCard]} {_localizer[SharedResourceKeys.NotFound]}",
@@ -405,9 +467,9 @@ namespace BusinessLogic_Layer.Service
 
                 #endregion
 
-                var mapApiCheckList = _mapper.Map<ApiCheckList, CheckList>(apiCheckList);
-                mapApiCheckList.TaskCards = checkTaskCard;
-                _unitOfWork.CheckListRepository.Add(mapApiCheckList);
+                var checkList = _mapper.Map<ApiCheckList, CheckList>(apiCheckList);
+                checkList.TaskCards = taskCard;
+                _unitOfWork.CheckListRepository.Add(checkList);
                 _unitOfWork.SaveChanges();
                 return new ResultObject
                 {
@@ -434,7 +496,7 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                #region Check Task Card exists
+                #region Check Check List exists
                 var checkList = _unitOfWork.CheckListRepository
                     .FirstOrDefault(n => n.Id == apiCheckListItem.CheckListId);
                 if (checkList == null)
@@ -473,53 +535,65 @@ namespace BusinessLogic_Layer.Service
         }
         public async Task<ResultObject> DeleteCheckList(Guid idCheckList)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                #region Check CheckList exists
-                var checkListDelete = _unitOfWork.CheckListRepository.FirstOrDefault(t => t.Id == idCheckList);
-                if (checkListDelete == null)
+                try
                 {
+                    #region Check CheckList exists
+                    var checkList = _unitOfWork.CheckListRepository.FirstOrDefault(t => t.Id == idCheckList);
+                    if (checkList == null)
+                    {
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.CheckList]} {_localizer[SharedResourceKeys.NotFound]}",
+                            Success = false,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
+                    }
+                    #endregion
+
+                    #region Delete CheckList from Database
+                    _unitOfWork.CheckListRepository.Remove(checkList);
+                    var response = _unitOfWork.SaveChangesBool();
+                    if (!response)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Error]}",
+                            Success = false,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    var deleteChildCheckList = _deleteChild.DeleteChildCheckList(idCheckList);
+                    await deleteChildCheckList;
+                    _unitOfWork.SaveChanges();
+                    #endregion
+
+                    transaction.Commit();
+
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.CheckList]} {_localizer[SharedResourceKeys.NotFound]}",
-                        Success = false,
-                        StatusCode = EnumStatusCodesResult.NotFound
+                        Data = true,
+                        Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
                     };
                 }
-                #endregion
-                
-                _unitOfWork.CheckListRepository.Remove(checkListDelete);
-                var response = _unitOfWork.SaveChangesBool();
-                if (!response)
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Error]}",
-                        Success = true,
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
-
-                var deleteChildCheckList = _deleteChild.DeleteChildCheckList(idCheckList);
-                await deleteChildCheckList;
-                _unitOfWork.SaveChanges();
-                return new ResultObject
+                }
+                finally
                 {
-                    Data = true,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
+                    _unitOfWork.Dispose();
+                }
             }
         }
         public async Task<ResultObject> DeleteCheckListItem(Guid idCheckListItem)
@@ -527,8 +601,8 @@ namespace BusinessLogic_Layer.Service
             try
             {
                 #region Check CheckListItem exists
-                var checkListItemDelete = _unitOfWork.CheckListItemRepository.FirstOrDefault(t => t.Id == idCheckListItem);
-                if (checkListItemDelete == null)
+                var checkListItem = _unitOfWork.CheckListItemRepository.FirstOrDefault(t => t.Id == idCheckListItem);
+                if (checkListItem == null)
                     return new ResultObject
                     {
                         Message = $"{_localizer[SharedResourceKeys.CheckListItem]} {_localizer[SharedResourceKeys.NotFound]}",
@@ -537,7 +611,7 @@ namespace BusinessLogic_Layer.Service
                     };
                 #endregion
 
-                _unitOfWork.CheckListItemRepository.Remove(checkListItemDelete);
+                _unitOfWork.CheckListItemRepository.Remove(checkListItem);
                 var response = _unitOfWork.SaveChangesBool();
                 if (!response)
                     return new ResultObject
@@ -571,8 +645,8 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                var data = _unitOfWork.TaskCardRepository.FirstOrDefault(n => n.Id == idTask);
-                if (data != null)
+                var taskCard = _unitOfWork.TaskCardRepository.FirstOrDefault(n => n.Id == idTask);
+                if (taskCard != null)
                     return true;
                 return false;
             }
@@ -589,8 +663,9 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                var checkCard = _unitOfWork.TaskCardRepository.FirstOrDefault(n => n.Id == request.MoveId);
-                if (checkCard == null)
+                #region Check taskCard exists
+                var taskCard = _unitOfWork.TaskCardRepository.FirstOrDefault(n => n.Id == request.MoveId);
+                if (taskCard == null)
                 {
                     return new ResultObject
                     {
@@ -599,8 +674,9 @@ namespace BusinessLogic_Layer.Service
                         StatusCode = EnumStatusCodesResult.Success
                     };
                 }
+                #endregion
 
-                if (checkCard.WorkflowId == request.SpaceId)
+                if (taskCard.WorkflowId == request.SpaceId)
                 {
                     // Lấy danh sách các task card trong cùng bảng
                     var checkPositionCards = _unitOfWork.TaskCardRepository.Find(w => w.WorkflowId == request.SpaceId)
@@ -617,10 +693,10 @@ namespace BusinessLogic_Layer.Service
                     }
 
                     // Xóa workflow cần di chuyển khỏi danh sách
-                    checkPositionCards.Remove(checkCard);
+                    checkPositionCards.Remove(taskCard);
 
                     // Thêm workflow vào vị trí mới
-                    checkPositionCards.Insert(request.NewPosition, checkCard);
+                    checkPositionCards.Insert(request.NewPosition, taskCard);
 
                     // Cập nhật lại vị trí cho tất cả các workflow
                     for (int i = 0; i < checkPositionCards.Count; i++)
@@ -650,7 +726,7 @@ namespace BusinessLogic_Layer.Service
                 }
                 else
                 {
-                    var getCardInWorkflowOld = _unitOfWork.TaskCardRepository.Find(w => w.WorkflowId == checkCard.WorkflowId)
+                    var getCardInWorkflowOld = _unitOfWork.TaskCardRepository.Find(w => w.WorkflowId == taskCard.WorkflowId)
                         .OrderBy(w => w.Position)
                         .ToList();
 
@@ -659,7 +735,7 @@ namespace BusinessLogic_Layer.Service
                        .ToList();
 
                     // Xóa workflow cần di chuyển khỏi danh sách
-                    getCardInWorkflowOld.Remove(checkCard);
+                    getCardInWorkflowOld.Remove(taskCard);
 
                     for (int i = 0; i < getCardInWorkflowOld.Count; i++)
                     {
@@ -667,9 +743,9 @@ namespace BusinessLogic_Layer.Service
                     }
 
                     // Thêm workflow vào vị trí mới
-                    
-                    checkCard.WorkflowId = request.SpaceId;
-                    getCardInWorkflowNew.Insert(request.NewPosition, checkCard);
+
+                    taskCard.WorkflowId = request.SpaceId;
+                    getCardInWorkflowNew.Insert(request.NewPosition, taskCard);
                     // Cập nhật lại vị trí cho tất cả các workflow
                     for (int i = 0; i < getCardInWorkflowNew.Count; i++)
                     {
@@ -711,6 +787,5 @@ namespace BusinessLogic_Layer.Service
                 _unitOfWork.Dispose();
             }
         }
-
     }
 }

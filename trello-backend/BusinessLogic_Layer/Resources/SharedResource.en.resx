@@ -126,6 +126,9 @@
   <data name="Board" xml:space="preserve">
     <value>Board</value>
   </data>
+  <data name="Chat" xml:space="preserve">
+    <value>Chat</value>
+  </data>
   <data name="CheckList" xml:space="preserve">
     <value>CheckList</value>
   </data>

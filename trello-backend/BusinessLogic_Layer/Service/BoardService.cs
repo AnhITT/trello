@@ -33,10 +33,10 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                var data = _unitOfWork.BoardRepository.GetAll();
+                var boards = _unitOfWork.BoardRepository.GetAll();
                 return new ResultObject
                 {
-                    Data = data,
+                    Data = boards,
                     Success = true,
                     StatusCode = EnumStatusCodesResult.Success
                 };
@@ -59,8 +59,8 @@ namespace BusinessLogic_Layer.Service
         {
             try
             {
-                var data = _unitOfWork.BoardRepository.FirstOrDefault(n => n.Id == idBoard);
-                if (data == null)
+                var board = _unitOfWork.BoardRepository.FirstOrDefault(n => n.Id == idBoard);
+                if (board == null)
                     return new ResultObject
                     {
                         Message = $"{_localizer[SharedResourceKeys.Board]} {_localizer[SharedResourceKeys.NotFound]}",
@@ -69,7 +69,7 @@ namespace BusinessLogic_Layer.Service
                     };
                 return new ResultObject
                 {
-                    Data = data,
+                    Data = board,
                     Success = true,
                     StatusCode = EnumStatusCodesResult.Success
                 };
@@ -164,189 +164,242 @@ namespace BusinessLogic_Layer.Service
         }
         public async Task<ResultObject> Create(ApiBoard apiBoard)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                #region Check workspace exists
-                var workspace = _unitOfWork.WorkspaceRepository.FirstOrDefault(n => n.Id == apiBoard.WorkspaceId);
-                if (workspace == null)
-                    return new ResultObject
+                try
+                {
+                    #region Check board exists
+                    var board = _unitOfWork.WorkspaceRepository.FirstOrDefault(n => n.Id == apiBoard.WorkspaceId);
+                    if (board == null)
                     {
-                        Message = $"{_localizer[SharedResourceKeys.Workspace]} {_localizer[SharedResourceKeys.NotFound]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.NotFound
-                    };
-                #endregion
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.Board]} {_localizer[SharedResourceKeys.NotFound]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
+                    }
+                    #endregion
 
-                #region Add data to Databasee
-                apiBoard.Id = Guid.NewGuid();
-                var mapApiBoard = _mapper.Map<ApiBoard, Board>(apiBoard);
-                _unitOfWork.BoardRepository.Add(mapApiBoard);
-                var result = _unitOfWork.SaveChangesBool();
-                if (!result)
+                    #region Add data to Database
+                    apiBoard.Id = Guid.NewGuid();
+                    var mapApiBoard = _mapper.Map<ApiBoard, Board>(apiBoard);
+                    _unitOfWork.BoardRepository.Add(mapApiBoard);
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    #region Add document to Elasticsearch
+                    apiBoard.Type = ElasticsearchKeys.BoardType;
+                    var response = await _elasticsearchService.CreateDocumentAsync(apiBoard, ElasticsearchKeys.WorkspaceIndex);
+                    if (!response)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.CreateFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch ",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    transaction.Commit();
+
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                        Data = true,
                         Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    return new ResultObject
+                    {
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
-                #endregion
-
-                #region Add document to Elasticsearch
-                apiBoard.Type = ElasticsearchKeys.BoardType;
-                var response = await _elasticsearchService.CreateDocumentAsync(apiBoard, ElasticsearchKeys.WorkspaceIndex);
-                if(!response)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.CreateFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch ",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.InternalServerError
-                    };
-                #endregion
-
-                return new ResultObject
+                }
+                finally
                 {
-                    Data = true,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
+                    _unitOfWork.Dispose();
+                }
             }
         }
         public async Task<ResultObject> Update(ApiBoard apiBoard)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                #region Check Board exists
-                var checkBoard = _unitOfWork.BoardRepository.FirstOrDefault(n => n.Id == apiBoard.Id);
-                if (checkBoard == null)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.Board]} {_localizer[SharedResourceKeys.NotFound]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.NotFound
-                    };
-                #endregion
-
-                #region Update to Database
-                _mapper.Map(apiBoard, checkBoard);
-                _unitOfWork.BoardRepository.Update(checkBoard);
-                var result = _unitOfWork.SaveChangesBool();
-                if (!result)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.InternalServerError
-                    };
-                #endregion
-
-                #region Update document to Elasticsearch
-                apiBoard.Type = ElasticsearchKeys.BoardType;
-                var response = await _elasticsearchService.UpdateDocumentAsync(apiBoard, ElasticsearchKeys.WorkspaceIndex, checkBoard.Id);
-                if (!response)
+                try
                 {
+                    #region Check Board exists
+                    var board = _unitOfWork.BoardRepository.FirstOrDefault(n => n.Id == apiBoard.Id);
+                    if (board == null)
+                    {
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.Board]} {_localizer[SharedResourceKeys.NotFound]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
+                    }
+                    #endregion
+
+                    #region Update to Database
+                    _mapper.Map(apiBoard, board);
+                    _unitOfWork.BoardRepository.Update(board);
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    #region Update document to Elasticsearch
+                    apiBoard.Type = ElasticsearchKeys.BoardType;
+                    var response = await _elasticsearchService.UpdateDocumentAsync(apiBoard, ElasticsearchKeys.WorkspaceIndex, board.Id);
+                    if (!response)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.UploadFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch ",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    transaction.Commit();
+
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.UploadFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch ",
+                        Data = true,
                         Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    return new ResultObject
+                    {
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
                 }
-                #endregion
-
-                return new ResultObject
+                finally
                 {
-                    Data = true,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
+                    _unitOfWork.Dispose();
+                }
             }
         }
         public async Task<ResultObject> Delete(Guid idBoard)
         {
-            try
+            using (var transaction = _unitOfWork.BeginTransaction())
             {
-                #region Check Board exists
-                var checkBoard = _unitOfWork.BoardRepository.FirstOrDefault(n => n.Id == idBoard);
-                if (checkBoard == null)
-                    return new ResultObject
+                try
+                {
+                    #region Check Board exists
+                    var board = _unitOfWork.BoardRepository.FirstOrDefault(n => n.Id == idBoard);
+                    if (board == null)
                     {
-                        Message = $"{_localizer[SharedResourceKeys.Board]} {_localizer[SharedResourceKeys.NotFound]}",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.NotFound
-                    };
-                #endregion
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.Board]} {_localizer[SharedResourceKeys.NotFound]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.NotFound
+                        };
+                    }
+                    #endregion
 
-                #region Delete to Database
-                _unitOfWork.BoardRepository.Remove(checkBoard);
-                var response = _unitOfWork.SaveChangesBool();
-                if (!response)
+                    #region Delete from Database
+                    _unitOfWork.BoardRepository.Remove(board);
+                    var result = _unitOfWork.SaveChangesBool();
+                    if (!result)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Error]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+
+                    // Delete child tasks asynchronously
+                    var deleteChildTask = _deleteChild.DeleteChildBoard(idBoard);
+                    await deleteChildTask;
+
+                    var resultDelete = _unitOfWork.SaveChangesBool();
+                    if (!resultDelete)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    #region Delete document from Elasticsearch
+                    var resultElastic = await _elasticsearchService.DeleteDocumentAsync(idBoard, ElasticsearchKeys.WorkspaceIndex);
+                    if (!resultElastic)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.DeleteFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch ",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
+                    #endregion
+
+                    transaction.Commit();
+
                     return new ResultObject
                     {
-                        Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Error]}",
+                        Data = true,
                         Success = true,
+                        StatusCode = EnumStatusCodesResult.Success
+                    };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    return new ResultObject
+                    {
+                        Message = ex.Message,
+                        Success = false,
                         StatusCode = EnumStatusCodesResult.InternalServerError
                     };
-                var deleteChildTask = _deleteChild.DeleteChildBoard(idBoard);
-                await deleteChildTask;
-                _unitOfWork.SaveChanges();
-                #endregion
-
-                #region Delete document to Elasticsearch
-                var result = await _elasticsearchService.DeleteDocumentAsync(idBoard, ElasticsearchKeys.WorkspaceIndex);
-                if (!result)
-                    return new ResultObject
-                    {
-                        Message = $"{_localizer[SharedResourceKeys.DeleteFailde]} {_localizer[SharedResourceKeys.Document]} Elasticsearch ",
-                        Success = true,
-                        StatusCode = EnumStatusCodesResult.InternalServerError
-                    };
-                #endregion
-
-                return new ResultObject
+                }
+                finally
                 {
-                    Data = true,
-                    Success = true,
-                    StatusCode = EnumStatusCodesResult.Success
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResultObject
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    StatusCode = EnumStatusCodesResult.InternalServerError
-                };
-            }
-            finally
-            {
-                _unitOfWork.Dispose();
+                    _unitOfWork.Dispose();
+                }
             }
         }
     }

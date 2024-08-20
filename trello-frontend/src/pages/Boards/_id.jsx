@@ -2,6 +2,7 @@ import Container from '@mui/material/Container'
 import BoardBar from '~/pages/Boards/BoardBar'
 import BoardContent from '~/pages/Boards/BoardContent'
 import { GetAllPropertiesFromBoard } from '~/apis/Board'
+import { toast } from 'react-toastify'
 import { useState, useEffect } from 'react'
 import { isEmpty } from 'lodash'
 import { generatePlaceholderCard } from '~/utils/formatters'
@@ -36,6 +37,20 @@ function Board() {
       ...newWorkflowData,
       boardId: board.id
     })
+
+    if (createdWorkflow.data === null) {
+      toast.error(createdWorkflow.message || 'Tạo workflow thất bại', {
+        position: 'bottom-right',
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: 'light'
+      })
+      return
+    }
 
     createdWorkflow.data.cards = [generatePlaceholderCard(createdWorkflow)]
     createdWorkflow.data.cardOrderIds = [
