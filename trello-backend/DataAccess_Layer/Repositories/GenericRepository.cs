@@ -1,6 +1,8 @@
 ﻿using DataAccess_Layer.DTOs;
+using DataAccess_Layer.Helpers;
 using DataAccess_Layer.Interfaces;
 using DataAccess_Layer.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Linq.Expressions;
@@ -11,8 +13,11 @@ namespace DataAccess_Layer.Repositories
     {
         private readonly DbContext _context;
         private IDbContextTransaction _transaction;
-        public GenericRepository(DbContext dbContext) {
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
+        public GenericRepository(DbContext dbContext, IHttpContextAccessor httpContextAccessor) {
             _context = dbContext;
+            _httpContextAccessor = httpContextAccessor;
         }
         public DbSet<T> Context()
         {
@@ -38,18 +43,23 @@ namespace DataAccess_Layer.Repositories
         {
             _context.Set<T>().UpdateRange(entities);
         }
-
-        public IEnumerable<T> FindIncludeDelete(System.Linq.Expressions.Expression<Func<T, bool>> expression)
+        public IEnumerable<T> GetAll(bool includeDeleted = false)
         {
-            return _context.Set<T>().Where(expression);
-        }
+            var property = typeof(T).GetProperty("IsDeleted");
 
-        public IEnumerable<T> Find(Expression<Func<T, bool>> expression)
+            if (property != null && !includeDeleted)
+            {
+                return _context.Set<T>().Where(e => EF.Property<bool>(e, "IsDeleted") == false).ToList();
+            }
+
+            return _context.Set<T>().ToList();
+        }
+        public IEnumerable<T> Find(Expression<Func<T, bool>> expression, bool includeDeleted = false)
         {
             var parameter = expression.Parameters.First();
             var property = typeof(T).GetProperty("IsDeleted");
 
-            if (property != null)
+            if (property != null && !includeDeleted)
             {
                 var isDeletedProperty = Expression.Property(parameter, "IsDeleted");
                 var isDeletedFalse = Expression.Equal(isDeletedProperty, Expression.Constant(false));
@@ -61,66 +71,99 @@ namespace DataAccess_Layer.Repositories
 
             return _context.Set<T>().Where(expression);
         }
-
-
-
-        public IEnumerable<TResult> SelectIncludeDelete<TResult>(Expression<Func<T, TResult>> selector)
+        public IEnumerable<TResult> Select<TResult>(Expression<Func<T, TResult>> selector, bool includeDeleted = false)
         {
+            var property = typeof(T).GetProperty("IsDeleted");
+
+            if (property != null && !includeDeleted)
+            {
+                return _context.Set<T>()
+                               .Where(e => EF.Property<bool>(e, "IsDeleted") == false)
+                               .Select(selector)
+                               .ToList();
+            }
+
             return _context.Set<T>().Select(selector).ToList();
         }
-
-        public IEnumerable<TResult> Select<TResult>(Expression<Func<T, TResult>> selector)
+        public T FirstOrDefault(Expression<Func<T, bool>> predicate, bool includeDeleted = false)
         {
-            return _context.Set<T>()
-                           .Where(e => EF.Property<bool>(e, "IsDeleted") == false)
-                           .Select(selector)
-                           .ToList();
+            var property = typeof(T).GetProperty("IsDeleted");
+
+            if (property != null && !includeDeleted)
+            {
+                var parameter = predicate.Parameters[0];
+                var isDeletedProperty = Expression.Property(parameter, "IsDeleted");
+                var isDeletedFalse = Expression.Equal(isDeletedProperty, Expression.Constant(false));
+                var combinedExpression = Expression.AndAlso(predicate.Body, isDeletedFalse);
+                var lambda = Expression.Lambda<Func<T, bool>>(combinedExpression, parameter);
+
+                return _context.Set<T>().FirstOrDefault(lambda);
+            }
+
+            return _context.Set<T>().FirstOrDefault(predicate);
+        }
+        public T GetById(object id, bool includeDeleted = false)
+        {
+            if (includeDeleted)
+            {
+                return _context.Set<T>().Find(id);
+            }
+            else
+            {
+                var parameter = Expression.Parameter(typeof(T), "e");
+                var idProperty = Expression.Property(parameter, "Id");
+                var idValue = Expression.Constant(id);
+                var idEqual = Expression.Equal(idProperty, idValue);
+
+                var isDeletedProperty = Expression.Property(parameter, "IsDeleted");
+                var isDeletedFalse = Expression.Equal(isDeletedProperty, Expression.Constant(false));
+
+                var combinedExpression = Expression.AndAlso(idEqual, isDeletedFalse);
+                var lambda = Expression.Lambda<Func<T, bool>>(combinedExpression, parameter);
+
+                return _context.Set<T>().FirstOrDefault(lambda);
+            }
         }
 
-        public T FirstOrDefault(System.Linq.Expressions.Expression<Func<T, bool>> expression)
+        public GenericPageModel<T> GetPage(int skip, int take,
+                                        Expression<Func<T, bool>>? filter = null,
+                                        Expression<Func<T, string>>? orderBy = null,
+                                        bool includeDeleted = false)
         {
-            var parameter = expression.Parameters[0];
-            var isDeletedProperty = Expression.Property(parameter, "IsDeleted");
-            var isDeletedFalse = Expression.Equal(isDeletedProperty, Expression.Constant(false));
+            var property = typeof(T).GetProperty("IsDeleted");
+            Expression<Func<T, bool>> defaultFilter = c => true;
+            Expression<Func<T, string>> defaultOrderBy = c => "";
 
-            var combinedExpression = Expression.AndAlso(expression.Body, isDeletedFalse);
-            var lambda = Expression.Lambda<Func<T, bool>>(combinedExpression, parameter);
+            filter = filter ?? defaultFilter;
+            orderBy = orderBy ?? defaultOrderBy;
 
-            return _context.Set<T>().FirstOrDefault(lambda);
-        }
+            var query = _context.Set<T>().AsQueryable();
+            if (property != null && !includeDeleted)
+            {
+                var parameter = filter.Parameters[0];
+                var isDeletedProperty = Expression.Property(parameter, "IsDeleted");
+                var isDeletedFalse = Expression.Equal(isDeletedProperty, Expression.Constant(false));
+                var combinedFilter = Expression.AndAlso(filter.Body, isDeletedFalse);
+                var lambdaFilter = Expression.Lambda<Func<T, bool>>(combinedFilter, parameter);
 
-        public T FirstOrDefaultIncludeDelete(Expression<Func<T, bool>> expression)
-        {
-            return _context.Set<T>().FirstOrDefault(expression);
-        }
+                query = query.Where(lambdaFilter);
+            }
+            else
+            {
+                query = query.Where(filter);
+            }
 
-        public IEnumerable<T> GetAll()
-        {
-            return _context.Set<T>().Where(e => EF.Property<bool>(e, "IsDeleted") == false).ToList();
-        }
+            var orderedQuery = query.OrderBy(orderBy.Compile());
+            var pagedQuery = orderedQuery.Skip(skip).Take(take);
 
-        public IEnumerable<T> GetAllIncludeDelete()
-        {
-            return _context.Set<T>().ToList();
-        }
+            GenericPageModel<T> result = new GenericPageModel<T>
+            {
+                Items = pagedQuery.ToList(),
+                TotalCount = query.Count()
+            };
 
-        public GenericPageModel<T> GetPage(int skip,int take, Expression<Func<T, bool>>? fillter, Expression<Func<T, string>>?  orderBy)
-        {
-            Expression<Func<T, bool>> lambdaFillter = c => true;
-            Expression<Func<T, string>> lambdaOrderBy = c => "";
-
-            if (fillter == null)
-                fillter = lambdaFillter;
-
-            if (orderBy == null)
-                orderBy = lambdaOrderBy;
-
-            GenericPageModel<T> result = new GenericPageModel<T>();
-            result.Items = _context.Set<T>().Where(fillter).OrderBy(orderBy.Compile()).Skip(skip).Take(take).ToList();
-            result.TotalCount= result.Items.Count();
             return result;
         }
-
         public List<T> GetUserFromObject(Expression<Func<T, bool>>? fillter)
         {
             Expression<Func<T, bool>> lambdaFillter = c => true;
@@ -132,38 +175,82 @@ namespace DataAccess_Layer.Repositories
             result = _context.Set<T>().Where(fillter).ToList();
             return result;
         }
+        public void Remove(T entity, bool hardDelete = false)
+        {
+            var property = typeof(T).GetProperty("IsDeleted");
 
-        public T GetById(Guid id)
-        {
-            return _context.Set<T>().Find(id);
+            if (hardDelete || property == null)
+            {
+                _context.Set<T>().Remove(entity);
+            }
+            else
+            {
+                var trackableEntity = entity as TrackableEntry;
+                if (trackableEntity != null)
+                {
+                    trackableEntity.IsDeleted = true;
+                    trackableEntity.DeletedBy = _httpContextAccessor.HttpContext?.GetCurrentUserId();
+                    trackableEntity.DeletedDate = DateTime.UtcNow;
+                    _context.Set<T>().Update(entity);
+                }
+            }
         }
+        public void RemoveRange(IEnumerable<T> entities, bool hardDelete = false)
+        {
+            var property = typeof(T).GetProperty("IsDeleted");
 
-        public T GetByIdIncludeDelete(Guid id)
-        {
-            return _context.Set<T>()
-                           .FirstOrDefault(e => EF.Property<Guid>(e, "Id") == id && EF.Property<bool>(e, "IsDeleted") == false);
-        }
-        public void Remove(T entity)
-        {
-            _context.Set<T>().Remove(entity);
-        }
-
-        public void RemoveRange(IEnumerable<T> entities)
-        {
-            _context.Set<T>().RemoveRange(entities);
+            if (hardDelete || property == null)
+            {
+                _context.Set<T>().RemoveRange(entities);
+            }
+            else
+            {
+                foreach (var entity in entities)
+                {
+                    var trackableEntity = entity as TrackableEntry;
+                    if (trackableEntity != null)
+                    {
+                        trackableEntity.IsDeleted = true;
+                        trackableEntity.DeletedBy = _httpContextAccessor.HttpContext?.GetCurrentUserId();
+                        trackableEntity.DeletedDate = DateTime.UtcNow;
+                        _context.Set<T>().Update(entity);
+                    }
+                }
+            }
         }
         public void Restore(T entity)
         {
-            var trackableEntity = entity as TrackableEntry;
-            if (trackableEntity != null)
+            var property = typeof(T).GetProperty("IsDeleted");
+
+            if (property != null)
             {
-                trackableEntity.IsDeleted = false;
-                trackableEntity.DeletedBy = null;
-                trackableEntity.DeletedDate = null;
-                _context.Set<T>().Update(entity);
+                var trackableEntity = entity as TrackableEntry;
+                if (trackableEntity != null)
+                {
+                    trackableEntity.IsDeleted = false;
+                    trackableEntity.DeletedBy = null;
+                    trackableEntity.DeletedDate = null;
+                    _context.Set<T>().Update(entity);
+                }
             }
         }
-
+        public void SaveChanges()
+        {
+            _context.SaveChanges();
+        }
+        public bool SaveChangesBool()
+        {
+            try
+            {
+                _context.SaveChanges();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+        }
+        #region transaction
         public void Commit()
         {
             _transaction.Commit();
@@ -179,21 +266,6 @@ namespace DataAccess_Layer.Repositories
             _transaction.Rollback();
             Dispose();
         }
-        public void SaveChanges()
-        {
-            _context.SaveChanges();
-        }
-        public bool SaveChangesBool()
-        {
-            try
-            {
-                _context.SaveChanges();
-                return true;
-            }
-            catch (DbUpdateException)
-            {
-                return false;
-            }
-        }
+        #endregion
     }
 }

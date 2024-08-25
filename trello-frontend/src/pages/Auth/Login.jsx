@@ -98,25 +98,13 @@ function Auth() {
                     color: 'primary.main'
                   }}
                 >
-                  Trello
+                  Login
                 </Typography>
               </Box>
             </Box>
             <Helmet>
               <title>Trello - Login</title>
             </Helmet>
-            <Typography
-              component="h1"
-              variant="h4"
-              sx={{
-                mt: 2,
-
-                fontWeight: 'bold',
-                color: 'primary.main'
-              }}
-            >
-              Login
-            </Typography>
 
             <Box component="form" onSubmit={handleLoginSubmit}>
               {loginError && (
@@ -163,7 +151,7 @@ function Auth() {
                     label="Remember me"
                   />
                 </FormControl>
-                <Link href="/">Forgot your password?</Link>
+                <Link href="/forgotpassword">Forgot your password?</Link>
               </Box>
               <Button
                 type="submit"

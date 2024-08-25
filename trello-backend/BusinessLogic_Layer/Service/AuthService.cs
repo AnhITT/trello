@@ -54,7 +54,7 @@ namespace BusinessLogic_Layer.Service
                     {
                         Message = _localizer[SharedResourceKeys.EmailVerify],
                         Success = true,
-                        StatusCode = EnumStatusCodesResult.Success,
+                        StatusCode = EnumStatusCodesResult.NotFound,
                     };
 
                 // Check password
@@ -129,7 +129,7 @@ namespace BusinessLogic_Layer.Service
                     var result = _unitOfWork.SaveChangesBool();
                     if (!result)
                     {
-                        transaction.Rollback(); // Rollback if saving data fails
+                        transaction.Rollback();
                         return new ResultObject
                         {
                             Message = $"{_localizer[SharedResourceKeys.SaveChanges]} {_localizer[SharedResourceKeys.Failde]}",
@@ -143,7 +143,7 @@ namespace BusinessLogic_Layer.Service
                     var emailSent = await _mailService.SendEmailVerify(user, newEmailVerify);
                     if (emailSent != true)
                     {
-                        transaction.Rollback(); // Rollback if sending email fails
+                        transaction.Rollback(); 
                         return new ResultObject
                         {
                             Message = _localizer[SharedResourceKeys.EmailSendFailde],
@@ -152,7 +152,7 @@ namespace BusinessLogic_Layer.Service
                         };
                     }
 
-                    transaction.Commit(); // Commit if both operations succeed
+                    transaction.Commit(); 
                     return new ResultObject
                     {
                         Data = emailSent,
@@ -202,7 +202,7 @@ namespace BusinessLogic_Layer.Service
                             StatusCode = EnumStatusCodesResult.NotFound
                         };
 
-                    var token = _unitOfWork.EmailVerificationTokenRepository.FirstOrDefaultIncludeDelete(n => n.UserId == user.Id);
+                    var token = _unitOfWork.EmailVerificationTokenRepository.FirstOrDefault(n => n.UserId == user.Id, true);
                     if (token == null || token.TokenEmail != checkTokenEmail.Token)
                         return new ResultObject
                         {
@@ -213,22 +213,10 @@ namespace BusinessLogic_Layer.Service
                     #endregion
 
                     #region Create password and save data to Database
-                    user.Password = _generate.CreateRandomPassword();
-
-                    var statusMail = await _mailService.SendEmailPassword(user);
-                    if (!statusMail)
-                    {
-                        transaction.Rollback();
-                        return new ResultObject
-                        {
-                            Message = $"{_localizer[SharedResourceKeys.EmailSendFailde]}",
-                            Success = true,
-                            StatusCode = EnumStatusCodesResult.InternalServerError
-                        };
-                    }
+                    var password = _generate.CreateRandomPassword();
 
                     var passwordHasher = new PasswordHasher<User>();
-                    user.Password = passwordHasher.HashPassword(user, user.Password);
+                    user.Password = passwordHasher.HashPassword(user, password);
                     user.VerifyEmail = true;
                     _unitOfWork.UserRepository.Update(user);
                     _unitOfWork.EmailVerificationTokenRepository.Remove(token);
@@ -267,6 +255,17 @@ namespace BusinessLogic_Layer.Service
                     }
                     #endregion
 
+                    var statusMail = await _mailService.SendEmailPassword(user, password);
+                    if (!statusMail)
+                    {
+                        transaction.Rollback();
+                        return new ResultObject
+                        {
+                            Message = $"{_localizer[SharedResourceKeys.EmailSendFailde]}",
+                            Success = true,
+                            StatusCode = EnumStatusCodesResult.InternalServerError
+                        };
+                    }
                     transaction.Commit();
                     return new ResultObject
                     {
@@ -307,7 +306,7 @@ namespace BusinessLogic_Layer.Service
                             StatusCode = EnumStatusCodesResult.NotFound
                         };
 
-                    var otp = _unitOfWork.OTPResetPasswordRepository.FirstOrDefaultIncludeDelete(u => u.Email == email);
+                    var otp = _unitOfWork.OTPResetPasswordRepository.FirstOrDefault(u => u.Email == email, true);
                     if (otp != null)
                     {
                         // if exist => update
@@ -409,7 +408,7 @@ namespace BusinessLogic_Layer.Service
             {
                 #region Check email and otp
                 var user = _unitOfWork.UserRepository.FirstOrDefault(u => u.Email == passwordConfirm.Email);
-                var otp = _unitOfWork.OTPResetPasswordRepository.FirstOrDefaultIncludeDelete(u => u.Email == passwordConfirm.Email);
+                var otp = _unitOfWork.OTPResetPasswordRepository.FirstOrDefault(u => u.Email == passwordConfirm.Email, true);
                 if (user == null || otp == null)
                     return new ResultObject
                     {

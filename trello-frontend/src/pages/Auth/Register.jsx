@@ -102,25 +102,13 @@ function Auth() {
                     color: 'primary.main'
                   }}
                 >
-                  Trello
+                  Register
                 </Typography>
               </Box>
             </Box>
             <Helmet>
               <title>Trello - Register</title>
             </Helmet>
-            <Typography
-              component="h1"
-              variant="h4"
-              sx={{
-                mt: 2,
-                fontWeight: 'bold',
-                color: 'primary.main'
-              }}
-            >
-              Register
-            </Typography>
-
             <Box component="form" onSubmit={handleRegisterSubmit}>
               {registerError && (
                 <Alert severity="error" sx={{ width: '100%', mt: 2 }}>

@@ -11,6 +11,7 @@ const NotFound = lazy(() => import('~/pages/NotFound/NotFound'))
 const Workspaces = lazy(() => import('~/pages/Workspaces'))
 const Login = lazy(() => import('~/pages/Auth/Login.jsx'))
 const Register = lazy(() => import('~/pages/Auth/Register.jsx'))
+const ForgotPassword = lazy(() => import('~/pages/Auth/ForgotPassword.jsx'))
 const VerifyEmail = lazy(() => import('~/pages/Auth/VerifyEmail'))
 const Chat = lazy(() => import('~/pages/Chat'))
 
@@ -21,7 +22,8 @@ const PublicRoutes = [
     children: [
       { path: '/', element: <Login /> },
       { path: '/register', element: <Register /> },
-      { path: '/verify/register', element: <VerifyEmail /> }
+      { path: '/verify/register', element: <VerifyEmail /> },
+      { path: '/forgotpassword', element: <ForgotPassword /> }
     ]
   },
   {

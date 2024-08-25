@@ -3,18 +3,22 @@ using DataAccess_Layer.Interfaces;
 using DataAccess_Layer.Models;
 using DataAccess_Layer.Repositories;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.AspNetCore.Http;
 
 namespace DataAccess_Layer.UnitOfWorks
 {
     public class UnitOfWorkUpload : IUnitOfWorkUpload
     {
-        private UploadDbContext _context;
+        private readonly UploadDbContext _context;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private IDbContextTransaction _transaction;
-        private GenericRepository<AttachmentFile> attachmentFileRepository;
 
-        public UnitOfWorkUpload(UploadDbContext uploadDbContext)
+        private IGenericRepository<AttachmentFile> attachmentFileRepository;
+
+        public UnitOfWorkUpload(UploadDbContext uploadDbContext, IHttpContextAccessor httpContextAccessor)
         {
             _context = uploadDbContext;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public IDbContextTransaction BeginTransaction()
@@ -23,14 +27,13 @@ namespace DataAccess_Layer.UnitOfWorks
             return _transaction;
         }
 
-        
-        public GenericRepository<AttachmentFile> AttachmentFileRepository
+        public IGenericRepository<AttachmentFile> AttachmentFileRepository
         {
             get
             {
                 if (this.attachmentFileRepository == null)
                 {
-                    this.attachmentFileRepository = new GenericRepository<AttachmentFile>(_context);
+                    this.attachmentFileRepository = new GenericRepository<AttachmentFile>(_context, _httpContextAccessor);
                 }
                 return attachmentFileRepository;
             }

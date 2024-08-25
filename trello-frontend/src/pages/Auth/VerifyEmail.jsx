@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '~/context/AuthProvider'
 import { NavLink as RouterLink } from 'react-router-dom'
-import { Box, Typography, Container, Card, Button } from '@mui/material'
+import {
+  Box,
+  Typography,
+  Container,
+  Card,
+  Button,
+  CircularProgress
+} from '@mui/material'
 import TrelloIcon from '~/assets/svg/trello.svg?react'
 import SvgIcon from '@mui/material/SvgIcon'
 
-const VerifyEmailSuccess = () => {
+const VerifyEmail = () => {
   const auth = useAuth()
   const [content, setContent] = useState('')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
@@ -19,6 +27,8 @@ const VerifyEmailSuccess = () => {
           setContent(response)
         } catch (error) {
           setContent('Failed to verify email')
+        } finally {
+          setLoading(false)
         }
       }
       fetchContent()
@@ -84,17 +94,23 @@ const VerifyEmailSuccess = () => {
               </Box>
             </Box>
 
-            <Typography
-              component="h1"
-              variant="h5"
-              sx={{
-                mt: 2,
-                fontWeight: 'bold',
-                color: 'primary.main'
-              }}
-            >
-              {content}
-            </Typography>
+            {/* Kiểm tra loading để hiển thị biểu tượng loading hoặc content */}
+            {loading ? (
+              <CircularProgress />
+            ) : (
+              <Typography
+                component="h1"
+                variant="h5"
+                sx={{
+                  mt: 2,
+                  fontWeight: 'bold',
+                  color: 'primary.main'
+                }}
+              >
+                {content}
+              </Typography>
+            )}
+
             <Button
               variant="outlined"
               fullWidth
@@ -116,4 +132,4 @@ const VerifyEmailSuccess = () => {
   )
 }
 
-export default VerifyEmailSuccess
+export default VerifyEmail

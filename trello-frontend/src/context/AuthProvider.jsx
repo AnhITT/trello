@@ -86,7 +86,29 @@ export const AuthProvider = ({ children }) => {
       return error
     }
   }
+  const forgotPassword = async email => {
+    setLoading(true)
+    try {
+      const response = await ForgotPasswordAPI(email)
+      return response.message
+    } catch (error) {
+      return error
+    } finally {
+      setLoading(false)
+    }
+  }
 
+  const confirmOTPChangePassword = async otpRequest => {
+    setLoading(true)
+    try {
+      const response = await ConfirmOTPChangePasswordAPI(otpRequest)
+      return response.message
+    } catch (error) {
+      return error
+    } finally {
+      setLoading(false)
+    }
+  }
   const logout = () => {
     Cookies.remove('token')
     setToken(null)
@@ -106,6 +128,8 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         verifyEmail,
+        forgotPassword,
+        confirmOTPChangePassword,
         isAuthenticated,
         loading
       }}

@@ -406,8 +406,8 @@ namespace BusinessLogic_Layer.Service
                     }
                     #endregion
 
-                    var workspaceUser = _unitOfWork.WorkspaceUserRepository.FirstOrDefaultIncludeDelete(n => n.WorkspaceId == apiUserWorkspace.WorkspaceId
-                                                                                                     && n.UserId == apiUserWorkspace.UserId);
+                    var workspaceUser = _unitOfWork.WorkspaceUserRepository.FirstOrDefault(n => n.WorkspaceId == apiUserWorkspace.WorkspaceId
+                                                                                                     && n.UserId == apiUserWorkspace.UserId, true);
                     if (workspaceUser != null)
                     {
                         _unitOfWork.WorkspaceUserRepository.Restore(workspaceUser);
